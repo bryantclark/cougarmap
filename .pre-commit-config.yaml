@@ -1,0 +1,28 @@
+# Install once: uv run pre-commit install --install-hooks -t pre-commit -t pre-push
+# Hooks run the project's own pinned tools through uv (same versions as uv.lock and scripts/check.sh).
+repos:
+  - repo: local
+    hooks:
+      - id: ruff-format
+        name: ruff format
+        entry: uv run --no-sync ruff format
+        language: system
+        types_or: [python, pyi]
+      - id: ruff-check
+        name: ruff check
+        entry: uv run --no-sync ruff check --fix
+        language: system
+        types_or: [python, pyi]
+      - id: mypy
+        name: mypy
+        entry: uv run --no-sync mypy
+        language: system
+        types_or: [python, pyi]
+        pass_filenames: false
+      - id: pytest
+        name: pytest
+        entry: uv run --no-sync pytest -q
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]

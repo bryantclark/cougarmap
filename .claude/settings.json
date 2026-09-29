@@ -1,0 +1,41 @@
+{
+	"_comment": "Shared Claude Code settings. Agent safety guidance lives in AGENTS.md; this file keeps the secrets permission deny rules. Add project-specific permissions in .claude/settings.local.json (gitignored). The template deliberately ships no hooks — put format/lint/typecheck commands in STACK.md's Common commands instead, and add hooks per-project only if the project wants them.",
+	"permissions": {
+		"deny": [
+			"Bash(cat .env)",
+			"Bash(cat .env.*)",
+			"Bash(head .env)",
+			"Bash(head .env.*)",
+			"Bash(tail .env)",
+			"Bash(tail .env.*)",
+
+			"Edit(.env)",
+			"Write(.env)",
+			"Edit(.env.*)",
+			"Write(.env.*)",
+
+			"Edit(.npmrc)",
+			"Write(.npmrc)",
+			"Edit(**/.npmrc)",
+			"Write(**/.npmrc)",
+
+			"Edit(*.pem)",
+			"Write(*.pem)",
+			"Edit(*.key)",
+			"Write(*.key)",
+			"Edit(*.p12)",
+			"Write(*.p12)",
+			"Edit(*.crt)",
+			"Write(*.crt)",
+			"Edit(*.cer)",
+			"Write(*.cer)",
+
+			"Edit(*service-account*.json)",
+			"Write(*service-account*.json)",
+			"Edit(*credentials*)",
+			"Write(*credentials*)",
+			"Edit(*secrets*)",
+			"Write(*secrets*)"
+		]
+	}
+}

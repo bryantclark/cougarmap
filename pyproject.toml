@@ -1,0 +1,115 @@
+[project]
+name = "cougarmap"
+version = "0.1.0"
+description = "Score terrain for mountain lion activity (wind, pinch points, edges, limited water) and pick trail-camera spots."
+requires-python = ">=3.12"
+license = "MIT"
+license-files = ["LICENSE"]
+readme = "README.md"
+dependencies = [
+    "numpy>=2.0",
+    "scipy>=1.13",
+    "numba>=0.60",
+    "rasterio>=1.4",
+    "pyproj>=3.6",
+    "shapely>=2.0",
+    "scikit-image>=0.24",
+    "requests>=2.32",
+    "simplekml>=1.3.6",
+    "pillow>=10",
+    "typer>=0.12",
+    "mcp>=1.2",
+]
+
+[project.scripts]
+cougarmap = "cougarmap.cli:main"
+cougarmap-mcp = "cougarmap.mcp_server:main"
+
+[dependency-groups]
+dev = [
+    "matplotlib>=3.11.2",
+    "mypy>=1.18",
+    "pre-commit>=4.6.2",
+    "pytest>=8",
+    "pytest-cov>=6",
+    "ruff>=0.13",
+    "scipy-stubs>=1.18.1.1",
+    "types-requests>=2.33.0.20260906",
+    "types-shapely>=2.1.0.20260728",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/cougarmap"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = ["-ra", "--strict-markers", "--strict-config", "-m", "not network and not slow", "--cov", "--cov-report=term"]
+markers = [
+    "network: hits live data services (run with -m network)",
+    "slow: needs saved states or a full analysis (run with -m slow)",
+]
+filterwarnings = [
+    # rasterio composes its own transforms with affine's deprecated `*`
+    "ignore:Use `@` matmul instead of `\\*` mul operator:PendingDeprecationWarning:rasterio",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["cougarmap"]
+
+[tool.coverage.report]
+skip_covered = true
+show_missing = true
+fail_under = 90
+# numba kernels (@jit) run compiled, where coverage can't see them; tests/test_kernels.py checks each against the
+# scipy/numpy code it replaces.
+exclude_also = ["if __name__ == .__main__.:", "raise NotImplementedError", "if TYPE_CHECKING:", "^@jit\\("]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+src = ["src", "tests", "scripts"]
+
+[tool.ruff.lint]
+select = [
+    "E", "F", "W", "I", "B", "UP", "SIM", "RUF", "N", "PL", "C4", "PTH", "RET", "ARG", "C90", "NPY", "PERF",
+]
+ignore = [
+    "N803", "N806", "N812",  # math-style names for grids and arrays (H, W, A, R, T) and module aliases
+    "PLR2004",               # model constants are documented inline next to the factor that uses them
+    "PLR0913", "PLR0917",    # the API mirrors the agent tools' keyword arguments
+    "PLC0415",               # heavy/optional imports are deferred on purpose (CLI and MCP start-up time)
+    "C408",                  # dict(...) is the house style for JSON result payloads
+    "E731",
+]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 12
+
+[tool.ruff.lint.pylint]
+max-statements = 60
+max-branches = 15
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["typer.Option", "typer.Argument"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["ARG", "PLR2004"]
+
+[tool.mypy]
+python_version = "3.12"
+files = ["src/cougarmap", "tests", "scripts"]
+mypy_path = "src:tests"
+explicit_package_bases = true
+strict = true
+warn_unreachable = true
+enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
+
+# The one dependency without type information (the others ship py.typed).
+[[tool.mypy.overrides]]
+module = ["rasterio.*"]
+ignore_missing_imports = true
