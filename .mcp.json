@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "cougarmap": {
+      "command": "uv",
+      "args": ["run", "--directory", ".", "cougarmap-mcp"]
+    }
+  }
+}
