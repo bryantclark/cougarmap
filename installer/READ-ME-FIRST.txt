@@ -1,0 +1,54 @@
+CougarMap - find mountain lion hotspots with your AI assistant
+=============================================================
+
+WHAT IT DOES
+Ask your AI assistant something like:
+    "Find me the cougar hotspots near Missoula, MT"
+    "Scan my property at 47.3712, -116.1029 - include private land"
+    "Look at the North Ridge area in my Google Earth file"
+It studies the terrain (wind, cold air drainage, edges, pinch points, water), picks the best
+trail-camera spots within a mile's walk of an open road, explains why each one is good, and makes
+a Google Earth file with the spots, walking routes and map layers.
+
+It works with any of these AI apps: Claude (desktop app, Cowork or Claude Code), ChatGPT/Codex,
+Gemini CLI, Google Antigravity or Cursor. You need at least one of them.
+
+INSTALL (one time, about 5 minutes)
+  Mac:      double-click  "Install CougarMap.command"
+            (if the Mac blocks it: right-click it -> Open -> Open)
+  Windows:  right-click  install.ps1  ->  "Run with PowerShell"
+
+The installer:
+  1. installs "uv", a small free tool that runs Python programs (from astral.sh)
+  2. installs CougarMap
+  3. connects CougarMap to the AI apps it finds on your computer
+Then quit and reopen your AI app.
+
+  * Claude Cowork only: in the Claude app go to Customize -> Plugins and upload
+    Documents/CougarMap/cougarmap-cowork-plugin.zip (the installer makes this file).
+  * The first time your AI app uses CougarMap it may ask permission - say "Always allow".
+
+USING IT
+  - The first search in a new area takes a few minutes (it downloads map and satellite data).
+    After that it's under a minute. The assistant will tell you it's working.
+  - Your results (Google Earth .kmz files) go in  Documents/CougarMap/results
+  - To use your own Google Earth pins (water, scrapes, cameras), tell the assistant:
+    "Import my Google Earth file at <path to the .kml>"
+  - Tell it what your cameras catch ("my camera at <lat, lon> got a lion on Oct 3"). That's how the
+    model gets better.
+  - It uses public land only unless you say it's your property or say "include private land".
+
+USING IT WITHOUT AN AI APP (Terminal)
+Open a new Terminal window (PowerShell on Windows) and type:
+    cougarmap hotspots "Missoula, MT"
+    cougarmap hotspots 47.3712, -116.1029 --radius-km 30
+Coordinates are latitude, longitude, as Google Maps copies them (west longitudes are negative).
+When it finishes, the map opens in Google Earth Pro (free: https://www.google.com/earth/about/versions/),
+and its file is in Documents/CougarMap/results. Type  cougarmap --help  for everything else.
+
+PRIVACY
+Everything runs on your computer. It only downloads public map data (USGS, Forest Service,
+OpenStreetMap, weather). Your camera locations stay in Documents/CougarMap.
+
+UNINSTALL
+Run  cougarmap setup --uninstall  in Terminal, then  uv tool uninstall cougarmap
