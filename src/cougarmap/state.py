@@ -32,6 +32,7 @@ from .grid import Grid
 from .sources.dem import DemInfo
 from .sources.weather import Wind
 from .terrain import Saddle
+from .worn import WornLine
 
 if TYPE_CHECKING:
     from _typeshed import DataclassInstance
@@ -41,7 +42,8 @@ if TYPE_CHECKING:
 # 4: houses within 500 m (populated areas) replace buildings within 150 m.
 # 5: recreation sites (rec_dist); ridge-spine crossing gates; downwind ends per air current; the winter module;
 #    quiet roads/trails (placement suggestions).
-STATE_VERSION: Final = 5
+# 6: worn trails from 1 m lidar (empty unless Options.worn_trails).
+STATE_VERSION: Final = 6
 
 PAVED_DIST_CAP_M: Final = 2000.0  # paved-road distances are stored up to this (well past the penalty's reach)
 
@@ -141,6 +143,9 @@ class Layers(TypedDict, total=False):
     trail_kind: Annotated[Ints, Store.EXACT]  # beside a quiet road/trail (factors.TRAIL_KINDS code, 0 = none)
     houses: Annotated[Floats, Store.HALF]  # houses within houses_radius_m (how populated the area is)
     rec_dist: Annotated[Floats, Store.HALF]  # m to a trailhead/campground/parking area, capped at PAVED_DIST_CAP_M
+    # worn trails from 1 m lidar (Options.worn_trails; empty when off): the lines, and the cells of those on no map
+    worn_lines: Annotated[list[WornLine], Store.EXACT]
+    worn_unmapped: Annotated[Mask, Store.EXACT]
     # the winter module: where deer winter (a multiplier on the habitat around a spot; 1 outside Nov-Apr)
     season: Annotated[Floats, Store.HALF]
     winter_mid: Annotated[Floats, Store.HALF]  # 0-1: low, sun-facing ground with shallow snow
@@ -342,6 +347,9 @@ def migrate(tree: dict[str, Any]) -> ModelState:
     fill("trail_kind", lambda: np.zeros(fine.shape, np.int8), True)  # no trail suggestions
     fill("winter_mid", lambda: np.zeros(mid.shape, np.float32), True)
     fill("winter_range_mid", lambda: np.zeros(mid.shape, bool), True)
+    # not modeled before version 6: no worn trails
+    fill("worn_lines", list, True)
+    fill("worn_unmapped", lambda: np.zeros(fine.shape, bool), True)
 
     layers = cast("Layers", {k: v for k, v in raw.items() if k in SAVED})  # layers dropped since are ignored
     return ModelState(

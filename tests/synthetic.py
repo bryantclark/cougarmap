@@ -11,7 +11,9 @@ The area is a 1.2 km square (local coordinates u east, v north, metres from its 
   driveway and a paved residential street;
 - winter: shallow snow in the west half, deep in the east, and deer winter range over the valley (u > 250);
 - land: national forest (open access) west of u = 250, restricted state land to the north-east, private
-  elsewhere; a homestead of four buildings and one cabin.
+  elsewhere; a homestead of four buildings and one cabin;
+- 1 m lidar: the same terrain with lidar-like noise and a worn trail benched into the east-facing slope along
+  u = TRAIL_U (v from -350 to 350), crossing the mapped path near its east end.
 """
 
 from __future__ import annotations
@@ -31,7 +33,7 @@ from shapely.ops import transform as shp_transform
 
 from cougarmap.arrays import Floats
 from cougarmap.grid import Grid
-from cougarmap.sources import buildings, canopy, dem, snow, vector, weather
+from cougarmap.sources import buildings, canopy, dem, lidar, snow, vector, weather
 from cougarmap.sources.dem import DemInfo
 from cougarmap.sources.vector import Feature, Water
 from cougarmap.sources.weather import GroundWind, PeriodWind, Wind
@@ -95,6 +97,31 @@ def fetch_dem(grid: Grid, allow_lidar: bool = True) -> tuple[Floats, DemInfo]:
 
 def fetch_canopy(grid: Grid) -> Floats:
     return canopy_height(*_uv(grid))
+
+
+TRAIL_U = -90.0
+TRAIL_V = (-350.0, 350.0)
+
+
+def benched(u: Floats, v: Floats) -> Floats:
+    """elevation() with a worn track benched into the slope (which falls to the east here) at TRAIL_U: a 1.5 m
+    cut, a 3 m flat tread, a 1.5 m fill."""
+    z = elevation(u, v).astype(np.float64)
+    on = (v >= TRAIL_V[0]) & (v <= TRAIL_V[1])
+    d = u - TRAIL_U
+    up, tread, down = (elevation(np.full_like(u, TRAIL_U + k), v).astype(np.float64) for k in (-1.5, 1.5, 4.5))
+    z = np.where(on & (d >= -1.5) & (d < 0), up + (tread - up) * (d + 1.5) / 1.5, z)
+    z = np.where(on & (d >= 0) & (d <= 3), tread, z)
+    z = np.where(on & (d > 3) & (d <= 4.5), tread + (down - tread) * (d - 3) / 1.5, z)
+    return z.astype(np.float32)
+
+
+def fetch_lidar_1m(grid: Grid) -> lidar.Lidar1m:
+    """The benched terrain at 1 m with 2 cm of lidar-like noise."""
+    rng = np.random.default_rng(abs(hash(tuple(grid.to_dict().values()))) % 2**32)
+    u, v = _uv(grid)
+    z = benched(u, v) + rng.normal(0, 0.02, grid.shape).astype(np.float32)
+    return lidar.Lidar1m(grid, z, 1.0, ["synthetic 1 m"])
 
 
 # ---- vectors -------------------------------------------------------------------------------------------------
@@ -221,6 +248,7 @@ def install(mp: pytest.MonkeyPatch) -> None:
     """Serve every data source from the synthetic landscape."""
     mp.setattr(dem, "fetch_dem", fetch_dem)
     mp.setattr(canopy, "fetch_canopy", fetch_canopy)
+    mp.setattr(lidar, "fetch_lidar_1m", fetch_lidar_1m)
     mp.setattr(vector, "fetch_water", fetch_water)
     mp.setattr(vector, "fetch_osm", fetch_osm)
     mp.setattr(vector, "fetch_osm_points", fetch_osm_points)

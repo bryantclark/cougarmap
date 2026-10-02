@@ -175,6 +175,47 @@ class Placement:
 PLACEMENT = Placement()
 
 
+@dataclass(frozen=True)
+class WornTrails:
+    """Worn trails from 1 m USGS 3DEP lidar (worn.py) and the per-spot hint that offers one (analyze.worn_hint).
+    Treads of game trails, cattle trails and old two-tracks show in bare-earth lidar as narrow troughs on gentle
+    ground and as benches on sidehills, many of them on no map. Human camera picks sit within 15 m of an unmapped
+    one far more often than matched controls, but as a score factor it did not help (docs/VALIDATION.md), so it
+    changes no score and no pick: a KMZ layer and a hint beside the spot, never instead of it."""
+
+    # oriented trough filters: a second derivative across an anisotropic Gaussian (across_m wide, along_m long) in
+    # n_dirs directions; the long support lifts 5-15 cm treads out of the lidar noise
+    across_m: tuple[float, ...] = (1.0, 2.0)
+    along_m: float = 6.0
+    n_dirs: int = 12
+    # on ground steeper than flat_deg, only lines at least off_fall_deg off the fall line count (drainages run
+    # down the fall line; trails traverse), and only where the ground just below is a bench: its slope under
+    # bench_ratio of both the cut slope above (2-7 m) and the fill slope below (3-7 m)
+    flat_deg: float = 8.0
+    off_fall_deg: float = 40.0
+    bench_ratio: float = 0.7
+    fall_smooth_m: float = 5.0  # the slope and fall line the tests use (Gaussian sigma)
+    # hysteresis on the response in noise units (its robust spread over the area), then a 1-cell skeleton;
+    # lines shorter than min_len_m are dropped
+    low: float = 4.0
+    high: float = 7.0
+    min_len_m: float = 40.0
+    # creek banks and channel edges look like benches: a line within creek_m of a mapped flowline or waterbody,
+    # or of a channel draining at least channel_min_m2, and within creek_deg of parallel to it, is dropped
+    creek_m: float = 10.0
+    creek_deg: float = 30.0
+    channel_min_m2: float = 20_000.0
+    mapped_m: float = 15.0  # a line this close to a mapped road or trail (OpenStreetMap, MVUM) is that one
+    pad_m: float = 60.0  # the 1 m window reaches this far past the area (the filters' edges)
+    max_km2: float = 60.0  # bigger areas get no layer (memory: ~25 bytes per square metre while detecting)
+    # the hint: the nearest unmapped worn line within hint_m of a spot (a camera's trigger range is ~15-25 m)
+    hint_m: float = 30.0
+    facing_m: float = 15.0  # this close, a camera at the spot can face it as it is
+
+
+WORN = WornTrails()
+
+
 @dataclass
 class Options:
     """Per-run options. The agent sets these from the user's request."""
@@ -211,6 +252,8 @@ class Options:
     zone_radius_m: float = 800.0
     max_cells: int = 12_000_000  # caps analysis resolution for big areas (~5 m for 300 km2)
     min_res_m: float = 3.0
+    # worn trails from 1 m lidar (WornTrails): a hidden KMZ layer and a per-spot hint; never changes a score
+    worn_trails: bool = False
     weights: Weights = field(default_factory=Weights)
     user_points: list[UserPoint] = field(default_factory=list)  # pins: kind water | seasonal_water | sign
 
