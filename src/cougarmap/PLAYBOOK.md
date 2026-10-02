@@ -55,11 +55,10 @@ the user asks or the public spots are weak; they need landowner permission.
 | "why is spot #3 good?" | `explain_point(area, lat, lon)` |
 | "more spread out", "more spots", "within 2 miles" (same area) | `repick(area, ...)` (seconds, no re-download) |
 | "what about private land there?" (same area) | read `private_candidates` from the last result (no rerun) |
-| "what's the wind there in November?" | `wind_summary(location, month=11)` |
 | "I put a camera out at LAT,LON" | `log_camera(lat, lon, name, arm, zone, start, ...)` (see Field log below) |
 | "checked camera X: a cougar on Nov 3 at 5:40" | `log_check(deployment="X", events=[...])` |
 | "log this lion track" + a GPX/KML file | `log_track(file, snow_age_h, confidence)` |
-| "surveyed Ridge road, two crossings / nothing" | `log_transect(route, file or crossings)` |
+| "surveyed Route 1, two crossings / nothing" | `log_transect(route, file or crossings)` |
 | "what have I logged?", "which cameras are out?" | `field_log()` |
 | "how is the map doing in AREA?" | `validate(area)` |
 | "my camera at LAT,LON got a lion" (a one-off, not a test) | `log_camera(lat, lon, name, start=..., end=...)` (arm unpaired), then `log_check(deployment, events=[...])` |

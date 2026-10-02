@@ -29,7 +29,6 @@ Hard rules: within **1 mile of walking** (along the easiest route) from a road t
 | `job_status(job_id)` | poll a running job until `state` is `done`; no id = recent jobs |
 | `repick(area, n_candidates, per_zone, max_walk_miles)` | re-select spots from a saved run in seconds |
 | `explain_point(area, lat, lon)` | why a spot scores the way it does |
-| `wind_summary(location, month)` | prevailing high-pressure wind |
 | `import_kml(path)` | use their Google Earth file (its water/sign pins count) and list its areas |
 | `open_file(path)` | open the KMZ in Google Earth |
 | `log_camera(lat, lon, name, arm, zone, ...)` | a camera put out (arm model / human / control / ...; zone pairs them) |

@@ -4,7 +4,6 @@ function returns plain JSON-able dicts."""
 from __future__ import annotations
 
 import contextlib
-import datetime as dt
 import json
 import os
 import shutil
@@ -27,7 +26,6 @@ from .config import OBSERVATIONS_FILE, OUT_DIR, PRIVATE_DIR, TRUTH, Options
 from .context import Log
 from .evaluate import cameras
 from .export import merge_kmz, write_outputs
-from .sources import weather
 from .state import ModelState, load_state, save_state, save_state_opts
 from .truth import area_truth
 
@@ -246,69 +244,6 @@ def validate(area: str, kml: str | None = None) -> JSON:
     records = fieldlog.load()
     with _STATES.use(_state_for(area)) as st:
         return area_truth(st, records, pins)
-
-
-def wind_summary(location: str, month: int | None = None) -> JSON:
-    lat, lon, label = aoi_mod.parse_location(location)
-    month = month or dt.date.today().month
-    p = weather.prevailing(lat, lon, month)
-
-    def period(w: weather.PeriodWind) -> JSON:
-        return dict(
-            from_compass=w["from_compass"],
-            consistency=w["consistency"],
-            most_common_from=weather.most_common(w["rose"]),
-            hours=w["hours"],
-            high_pressure_share=w["high_pressure_share"],
-        )
-
-    return dict(
-        location=label,
-        month=month,
-        **weather.describe(p),
-        dawn=period(p["dawn"]),
-        dusk=period(p["dusk"]),
-        daytime_from=p["day_from_compass"],
-        all_days_from=p["all_days_from_compass"],
-        how_to_read="'from' is where the wind comes from. consistency (R, 0-1): 1 = always from that direction; "
-        f"below {weather.UNSTEADY_R} it is unsteady (it holds that direction in only about a third of the hours), "
-        "so most_common_from can differ from the mean. prevailing_from is the 850 hPa wind above the ridges, "
-        "the one the map scores with. ground_level is the 10 m wind, for reference: at dawn and dusk it mostly "
-        "shows cold air draining down the main valley. If you trust a local wind (your own or a weather "
-        "station's) over the modeled one, pass wind_from_deg.",
-    )
-
-
-def log_result(
-    lat: float,
-    lon: float,
-    lion_seen: bool,
-    name: str | None = None,
-    start: str | None = None,
-    end: str | None = None,
-    detections: int | None = None,
-    times: list[str] | None = None,
-    notes: str | None = None,
-) -> JSON:
-    """The quick camera result (the original log format): saved as an unpaired deployment from start through
-    end (the last night the result covers; the camera stays open for later checks) with `detections` cougar
-    detections (at `times` when given). For a designed test, use log_camera and log_check instead (arm, zone,
-    effort, every species)."""
-    v1 = dict(
-        logged=dt.datetime.now().isoformat(timespec="seconds"),
-        name=name,
-        lat=lat,
-        lon=lon,
-        lion_seen=lion_seen,
-        start=start,
-        end=end,
-        detections=detections,
-        times=times or [],
-        notes=notes,
-    )
-    recs = fieldlog.migrate(v1, set(fieldlog.deployments(fieldlog.load())))
-    total = fieldlog.append(recs)
-    return dict(saved=True, file=str(OBSERVATIONS_FILE), record=recs[0], events=recs[1:], total=total)
 
 
 def read_observations() -> list[JSON]:

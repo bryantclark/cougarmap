@@ -20,7 +20,6 @@ EXAMPLES = """Examples:
 \b
   cougarmap analyze --near "47.3712, -116.1029" --radius-km 3
   cougarmap hotspots "Missoula, MT"
-  cougarmap wind "Missoula, MT" --month 11
   cougarmap open <the .kmz path it prints>
 
 Coordinates are latitude, longitude (west longitudes are negative, as Google Maps copies them)."""
@@ -194,19 +193,6 @@ def analyze(
 
 
 @app.command()
-def scout(
-    location: str = typer.Argument(..., help="place name or 'lat,lon'"),
-    radius_km: float = 40.0,
-    month: int | None = None,
-    max_walk_miles: float = 1.0,
-    top: int = 8,
-) -> None:
-    """Coarse screen of a region -> the best ~3 km blocks to analyze."""
-    _note_fixes(location)
-    _out(api.scout_region(location, radius_km, month, max_walk_miles, top, log=_log))
-
-
-@app.command()
 def repick(
     area: str,
     n: int = 15,
@@ -230,28 +216,6 @@ def validate(
 ) -> None:
     """Test an analyzed area against the field log (cameras, snow tracks, transects) and human camera picks."""
     _out(api.validate(area, kml=kml))
-
-
-@app.command()
-def wind(location: str, month: int | None = None) -> None:
-    """Prevailing high-pressure wind for a place and month."""
-    _note_fixes(location)
-    _out(api.wind_summary(location, month))
-
-
-@app.command("log")
-def log_cmd(
-    lat: float,
-    lon: float,
-    lion: bool = typer.Option(..., "--lion/--no-lion"),
-    name: str | None = None,
-    start: str | None = None,
-    end: str | None = None,
-    detections: int | None = None,
-    notes: str | None = None,
-) -> None:
-    """Quick record of what a camera caught (an unpaired camera; use log-camera + log-check for a test)."""
-    _out(api.log_result(lat, lon, lion, name, start, end, detections, None, notes))
 
 
 def _event(text: str) -> dict[str, Any]:
@@ -354,14 +318,8 @@ def field_log_cmd() -> None:
     _out(api.field_log())
 
 
-@app.command()
-def areas(kml: str) -> None:
-    """List named areas and pins in a KML."""
-    _out(api.list_areas(kml))
-
-
 _NUMBER = re.compile(r"^-?\d+(?:\.\d+)?\s*°?[NSEWnsew]?,?$")
-_PLACE_COMMANDS = {"hotspots", "scout", "wind", "analyze"}
+_PLACE_COMMANDS = {"hotspots", "analyze"}
 
 
 def _join_coords(args: list[str]) -> list[str]:

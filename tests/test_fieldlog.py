@@ -258,12 +258,12 @@ def test_tracks(tmp_path: Path) -> None:
 
 
 def test_transects(tmp_path: Path) -> None:
-    s1, ignored = fl.new_transect([], "Ridge road", file=str(_text(tmp_path / "r.kml", KML)), surface="Snow")
+    s1, ignored = fl.new_transect([], "Route 1", file=str(_text(tmp_path / "r.kml", KML)), surface="Snow")
     assert s1["date"] == "2026-12-04" and s1["crossings"] == [[48.001, -117.0]] and len(s1["lines"]) == 2
     assert ignored == ["Parking"]  # only waypoints named as a lion crossing count
     # a repeat survey of the same route, nothing crossed: the route's line is reused
-    s2, _ = fl.new_transect([s1], "Ridge road", date="2026-12-11")
-    assert s2["lines"] == s1["lines"] and s2["crossings"] == [] and s2["id"] == "Ridge road 2026-12-11"
+    s2, _ = fl.new_transect([s1], "Route 1", date="2026-12-11")
+    assert s2["lines"] == s1["lines"] and s2["crossings"] == [] and s2["id"] == "Route 1 2026-12-11"
     s3, _ = fl.new_transect([], "Mud road", line=[[48.0, -117.0], [48.01, -117.0]], crossings=[[48.005, -117.0]])
     assert s3["crossings"] == [[48.005, -117.0]]
     gpx, ignored = fl.new_transect([], "G", file=str(_text(tmp_path / "r.gpx", GPX)))
@@ -271,7 +271,7 @@ def test_transects(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="has no line yet"):
         fl.new_transect([], "New road")
     with pytest.raises(ValueError, match="surface must be one of"):
-        fl.new_transect([s1], "Ridge road", surface="ice")
+        fl.new_transect([s1], "Route 1", surface="ice")
 
 
 def test_the_human_arm_reads_its_earlier_name() -> None:

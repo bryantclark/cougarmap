@@ -15,7 +15,6 @@ from mcp.types import CallToolResult, TextContent
 from typer.core import TyperGroup
 from typer.testing import CliRunner
 
-import synthetic
 import toys
 from cougarmap import api, jobs, mcp_server
 from cougarmap.cli import app
@@ -39,7 +38,6 @@ def test_mcp_tool_names() -> None:
         "job_status",
         "repick",
         "explain_point",
-        "wind_summary",
         "log_camera",
         "log_check",
         "log_track",
@@ -146,8 +144,7 @@ def test_cli_commands(analyzed: dict[str, Any], area: str, monkeypatch: pytest.M
     assert run("explain", "--", area, str(c["lat"]), str(c["lon"]))["best_nearby"]["reasons"]
     assert run("repick", area, "--n", "2")["summary"]["n_candidates"] <= 2
     assert run("validate", area)["human_picks"] is None
-    assert run("areas", str(_kml_file(analyzed)))["areas"]
-    assert run("log", "1.0", "2.0", "--no-lion", "--name", "Cam09")["record"]["arm"] == "unpaired"
+    assert run("import-kml", str(_kml_file(analyzed)))["areas"]
     cam = run(
         "log-camera",
         "--name",
@@ -184,16 +181,13 @@ def test_cli_commands(analyzed: dict[str, Any], area: str, monkeypatch: pytest.M
     assert res.exit_code != 0
     OBSERVATIONS_FILE.unlink()
     assert run("jobs") == [] or isinstance(run("jobs"), list)
-    with synthetic.offline():
-        assert run("wind", f"{synthetic.LAT},{synthetic.LON}", "--month", "10")["prevailing_from"] == "W"
     calls: list[tuple[Any, ...]] = []
-    for fn in ("find_hotspots", "scout_region", "analyze_area"):
+    for fn in ("find_hotspots", "analyze_area"):
         monkeypatch.setattr(api, fn, toys.recorder(calls, dict(ok=True)))
     monkeypatch.setattr(jobs, "start", lambda kind, params: "job-9")
     assert run("hotspots", "Testville", "--max-walk-miles", "0.5") == dict(ok=True)
     assert calls[-1][:6] == ("Testville", None, None, None, None, 0.5)
     assert run("hotspots", "Testville", "--background")["job_id"] == "job-9"
-    assert run("scout", "Testville", "--top", "2") == dict(ok=True) and calls[-1][-2] == 2
     assert run("analyze", "--bbox=1,2,3,4", "--n", "4") == dict(ok=True) and calls[-1][4] == [1.0, 2.0, 3.0, 4.0]
     res = runner.invoke(app, ["playbook"])
     assert res.exit_code == 0 and "find_hotspots" in res.stdout
@@ -234,7 +228,7 @@ def test_cli_joins_typed_coordinates() -> None:
     ]
     assert _join_coords(["hotspots", "--month", "10", "47.4", "-116"]) == ["hotspots", "--month", "10", "47.4,-116"]
     assert _join_coords(["analyze", "--near", "47.4", "-116"]) == ["analyze", "--near", "47.4,-116"]
-    assert _join_coords(["log", "47.1", "-117.2", "--lion"]) == ["log", "47.1", "-117.2", "--lion"]  # lat lon args
+    assert _join_coords(["explain", "a", "47.1", "-117.2"]) == ["explain", "a", "47.1", "-117.2"]  # lat lon args
 
 
 def test_cli_main_errors_and_map_link(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
@@ -243,8 +237,8 @@ def test_cli_main_errors_and_map_link(monkeypatch: pytest.MonkeyPatch, capsys: p
     def boom(*a: Any, **k: Any) -> Any:
         raise RuntimeError("no elevation data for this area")
 
-    monkeypatch.setattr(api, "wind_summary", boom)
-    monkeypatch.setattr(sys, "argv", ["cougarmap", "wind", "47.4,", "116.1"])
+    monkeypatch.setattr(api, "find_hotspots", boom)
+    monkeypatch.setattr(sys, "argv", ["cougarmap", "hotspots", "47.4,", "116.1"])
     with pytest.raises(SystemExit) as e:
         cli.main()
     err = capsys.readouterr().err

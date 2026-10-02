@@ -68,7 +68,7 @@ Safety: don't follow toward a fresh kill, carry bear spray, and tell someone whe
 
 **Set up once per area.** Choose **2-3 fixed routes, each 5-10 km long**: forest roads, two-tracks or a long
 trail. Pick routes that cross different ground: creek bottoms, saddles, ridges and meadow edges. Give each
-route a name, like "Ridge road". Use the same routes all winter. That is what makes the surveys comparable.
+route a name, like "Route 1". Use the same routes all winter. That is what makes the surveys comparable.
 
 **After each fresh snow** (or when a dirt road is muddy or dusty enough to hold prints):
 
@@ -83,13 +83,13 @@ route a name, like "Ridge road". Use the same routes all winter. That is what ma
 
 **Log every survey, including the ones with no crossings:**
 
-> Log a transect on Ridge road: ~/Downloads/ridge-dec4.gpx, snow, fell about a day ago.
+> Log a transect on Route 1: ~/Downloads/route1-dec4.gpx, snow, fell about a day ago.
 >
-> Surveyed Ridge road again today after the new snow: no lion crossings.
+> Surveyed Route 1 again today after the new snow: no lion crossings.
 
 A repeat survey with no crossings doesn't need a file, because the route is remembered. On the command line:
-`cougarmap log-transect "Ridge road" ~/Downloads/ridge-dec4.gpx --snow-age-h 24`, or just
-`cougarmap log-transect "Ridge road" --date 2026-12-11` for a survey with nothing crossed.
+`cougarmap log-transect "Route 1" ~/Downloads/route1-dec4.gpx --snow-age-h 24`, or just
+`cougarmap log-transect "Route 1" --date 2026-12-11` for a survey with nothing crossed.
 
 ## 3. Paired cameras
 
@@ -106,7 +106,7 @@ A **zone** is one test: two cameras put out on the same day, 150-500 m apart, an
   camera (or `human`, if a person picked it). The report compares the trail camera with the pick's camera in
   that zone, and the pick's camera with the control as usual, so nothing is lost. For example:
 
-  > Put out a camera, on-feature arm, zone "North 1", at the trail alternate for that spot, on the two-track.
+  > Put out a camera, on-feature arm, zone "A", at the trail alternate for that spot, on the two-track.
 
   If the alternate says it is on a road open to vehicles, expect more people and a higher theft risk there.
 
@@ -123,18 +123,18 @@ check, log:
   same animal within 30 minutes are one visit. Log deer and elk too: they show where the prey is.
 
 When a camera comes down, say so. If you said a camera came down and it is actually still out, say that too
-("M-North1 is still out"), or the next check can't be logged. Examples:
+("M-A1 is still out"), or the next check can't be logged. Examples:
 
-> Put out a camera, model arm, zone "North 1", at 47.3712, -116.1029, 1 m high facing north, on a game trail.
+> Put out a camera, model arm, zone "A", at 47.3712, -116.1029, 1 m high facing north, on a game trail.
 >
-> Checked camera M-North1 today: a cougar on Nov 3 at 5:40 am, 3 deer on Nov 10 at 7 pm. No downtime.
+> Checked camera M-A1 today: a cougar on Nov 3 at 5:40 am, 3 deer on Nov 10 at 7 pm. No downtime.
 >
-> Checked the North 1 control camera: nothing. The battery died about 10 days before I got there.
+> Checked the zone A control camera: nothing. The battery died about 10 days before I got there.
 >
-> Took down both North 1 cameras today.
+> Took down both zone A cameras today.
 
-(Command line: `cougarmap log-camera --name M-North1 --arm model --zone "North 1" --height-m 1 --facing-deg 0 --trail-type game-trail -- 47.3712 -116.1029`,
-then `cougarmap log-check M-North1 --event "2026-11-03T05:40 cougar 1" --event "2026-11-10T19:00 deer 3"`.)
+(Command line: `cougarmap log-camera --name M-A1 --arm model --zone "A" --height-m 1 --facing-deg 0 --trail-type game-trail -- 47.3712 -116.1029`,
+then `cougarmap log-check M-A1 --event "2026-11-03T05:40 cougar 1" --event "2026-11-10T19:00 deer 3"`.)
 
 **How many?** Lions are rare: a random trail camera in northeast Washington gets about 1 cougar visit per 100 nights in summer and
 1 per 270 in winter. To show that the map's picks do 3 times better than controls, it takes about **15-20 zones
@@ -144,7 +144,7 @@ in the first winter.
 
 ## Checking the results
 
-Ask the assistant: **"How is the map doing in North Ridge?"** (it runs `validate`). Or ask: **"What have I
+Ask the assistant: **"How is the map doing in My Area?"** (it runs `validate`). Or ask: **"What have I
 logged?"** (`field_log`).
 
 The report shows:
