@@ -1,4 +1,6 @@
-# CougarMap installer (Windows). Right-click -> "Run with PowerShell".
+# CougarMap installer (Windows). Right-click -> "Run with PowerShell", or in PowerShell:
+#   powershell -c "irm https://raw.githubusercontent.com/bryantclark/cougarmap/main/installer/install.ps1 | iex"
+# Running it again updates CougarMap.
 $ErrorActionPreference = "Stop"
 Write-Host "== Installing CougarMap =="
 if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
@@ -15,4 +17,4 @@ Write-Host "-- connecting CougarMap to your AI tools"
 Write-Host ""
 Write-Host "Done. Restart your AI app and ask: 'Find me the cougar hotspots near Missoula, MT'"
 Write-Host "Or open a new PowerShell window and type:  cougarmap hotspots ""Missoula, MT"""
-Read-Host "Press Enter to close"
+if ($PSCommandPath) { Read-Host "Press Enter to close" }  # double-clicked: keep the window open

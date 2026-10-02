@@ -1,5 +1,7 @@
 #!/bin/sh
-# CougarMap installer (macOS / Linux). Double-click "Install CougarMap.command" on a Mac, or run: sh install.sh
+# CougarMap installer (macOS / Linux). Double-click "Install CougarMap.command" on a Mac, or in a terminal:
+#   curl -LsSf https://raw.githubusercontent.com/bryantclark/cougarmap/main/installer/install.sh | sh
+# Running it again updates CougarMap.
 set -e
 echo "== Installing CougarMap =="
 if ! command -v uv >/dev/null 2>&1 && [ ! -x "$HOME/.local/bin/uv" ]; then
