@@ -56,8 +56,11 @@ For each spot:
 The Google Earth map has the ranked pins (click one for its reasons), walking routes, dawn and dusk air-flow
 arrows, saddles, and a layer for each factor you can switch on and off.
 
-By default every spot is on **public land** within **1 mile of walking** from a road open that month. Add
-`--include-private` to scan your own property. `--max-walk-miles` and `--month` change the other defaults.
+By default the ranked spots are on **public land** within **1 mile of walking** from a road open that month.
+Private land is scored the same way and its best spots are found too, but kept apart: they're listed separately
+(P1, P2...) and sit in map layers that start switched off. Tick "Private land spots" in Google Earth to see them,
+and get landowner permission before using one. `--include-private` ranks public and private spots together,
+for example to scan your own property. `--max-walk-miles` and `--month` change the other defaults.
 
 ## How it picks spots
 
