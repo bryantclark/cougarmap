@@ -19,6 +19,7 @@ os.environ["COUGARMAP_HOME"] = str(_HOME)
 os.environ["COUGARMAP_OUT"] = str(_HOME / "results")
 os.environ["COUGARMAP_CACHE"] = str(_HOME / "cache")
 os.environ["COUGARMAP_PRIVATE"] = str(_HOME / "my-data")
+os.environ["COUGARMAP_EXPLORE_APP"] = str(Path(__file__).with_name("explore_stub.html"))  # not the real app
 
 import synthetic  # noqa: E402  (after the environment is set)
 from cougarmap import analyze, api  # noqa: E402

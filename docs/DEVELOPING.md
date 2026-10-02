@@ -65,10 +65,14 @@ runs the MCP server; `scripts/mcp_e2e.py` drives it end to end over the network.
   the report). It can veto a change, never tune one.
 - `explain`, `repick` and `validate` only read states inside the results folder, because a state file is a pickle.
 - `explore.py` writes the opt-in weights page (`explore.html`, `--interactive`): the per-cell inputs of the score
-  on a ~10 m grid, quantized and deflated into one HTML file with `explore_page.html` (the UI) and `explore.js`
-  (a port of `analyze.combine`, the site penalties and `pick_candidates`). Change those three together:
-  `tests/test_explore.py` runs `explore.js` under node (skipped without node) against a numpy copy of the page's
-  math and against the model's own spots. See [HOW_IT_WORKS.md](HOW_IT_WORKS.md#the-weights-page).
+  on a ~10 m grid, quantized and deflated, plus the KMZ's other layers, inlined into the weights app.
+  `explore-app/` is that app (React, MapLibre, Vite; node 22): `npm ci && npm run build` makes
+  `explore-app/dist/index.html`, one file a source checkout uses directly; installs download the copy each release
+  attaches (`app_html`; `COUGARMAP_EXPLORE_APP=<file>` overrides). `npm run dev` serves it with the payload JSON at
+  `COUGARMAP_DEV_PAYLOAD` (keep that file outside the repo). `explore-app/src/kernel.js` is the port of
+  `analyze.combine`, the site penalties and `pick_candidates`: `tests/test_explore.py` runs it under node (skipped
+  without node) against a numpy copy of the page's math and against the model's own spots, public and private.
+  See [HOW_IT_WORKS.md](HOW_IT_WORKS.md#the-weights-page).
 - `setup_harnesses.py` is `cougarmap setup`. `PLAYBOOK.md` and `INSTRUCTIONS.md` are what agents read: keep the
   server instructions under 2 KB.
 

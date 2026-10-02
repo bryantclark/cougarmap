@@ -15,7 +15,7 @@ import pytest
 from typer.testing import CliRunner
 
 import synthetic
-from cougarmap import api, context, explore
+from cougarmap import api, context, explore, net
 from cougarmap import terrain as T
 from cougarmap.analyze import apply_masks, pick_all, ramp
 from cougarmap.arrays import Floats
@@ -24,8 +24,8 @@ from cougarmap.grid import Grid
 from cougarmap.state import ModelState, load_state
 
 NODE = shutil.which("node")
-RUNNER = Path(__file__).with_name("explore_run.cjs")
-KERNEL = Path(explore.__file__).with_name("explore.js")
+RUNNER = Path(__file__).with_name("explore_run.mjs")
+KERNEL = Path(__file__).parents[1] / "explore-app" / "src" / "kernel.js"
 
 
 @pytest.fixture(scope="module")
@@ -37,7 +37,7 @@ def state(analyzed: dict[str, Any]) -> ModelState:
 
 @pytest.fixture(scope="module")
 def data(state: ModelState, analyzed: dict[str, Any]) -> dict[str, Any]:
-    return explore.payload(state, pick_all(state)[0])
+    return explore.payload(state, *pick_all(state))
 
 
 def test_a_normal_run_writes_no_page(analyzed: dict[str, Any]) -> None:
@@ -49,7 +49,9 @@ def test_payload_layers_are_the_coarse_inputs(state: ModelState, data: dict[str,
     assert f == max(1, round(explore.EXPLORE_RES_M / state.fine.res)) and g["res"] == state.fine.res * f
     shape = [math.ceil(state.fine.height / f), math.ceil(state.fine.width / f)]
     assert [g["height"], g["width"]] == shape
-    assert set(data["layers"]) == {*explore.WEIGHTED, "habitat", *explore.PENALTIES, "usable"}
+    extra = set(explore.map_layers(state))
+    assert {"edge_meadow", "public", "private", "reach"} <= extra
+    assert set(data["layers"]) == {*explore.WEIGHTED, "habitat", *explore.PENALTIES, "usable", "usable_private", *extra}
     A = state.layers
     for k in explore.WEIGHTED:
         got, want = explore.decode(data["layers"][k]), explore.block_mean(A[k], f)  # type: ignore[literal-required]
@@ -69,7 +71,12 @@ def test_payload_layers_are_the_coarse_inputs(state: ModelState, data: dict[str,
     usable = explore.decode(data["layers"]["usable"])
     assert set(np.unique(usable)) <= {0.0, 1.0} and usable.any()
     assert data["pick"]["n"] == state.opts.n_candidates and data["weights"]["wind"] == state.opts.weights.wind
-    assert [s["name"] for s in data["model_spots"]] == [c["name"] for c in pick_all(state)[0]]
+    pub, priv = pick_all(state)
+    assert [s["name"] for s in data["model_spots"]] == [c["name"] for c in pub]
+    assert [s["name"] for s in data["model_private_spots"]] == [c["name"] for c in priv]
+    feats = data["features"]
+    assert set(feats) == {"worn", "routes", "airflow", "saddles"} and feats["airflow"]
+    assert all(len(pt) == 2 for r in feats["routes"] for pt in r["coords"])
     assert data["outline"] and all(len(p) == 2 for p in data["outline"][0])
 
 
@@ -98,13 +105,68 @@ def test_georeference_is_good_to_a_metre(x0: float) -> None:
         assert math.hypot(float(bx) - x, float(by) - y) < 1.0
 
 
-def test_page_inlines_kernel_and_payload(data: dict[str, Any], tmp_path: Path) -> None:
+def test_page_inlines_the_payload(data: dict[str, Any]) -> None:
     html = explore.render(data)
-    assert "/*__KERNEL__*/" not in html and "/*__PAYLOAD__*/" not in html and "CougarKernel" in html
-    assert "World_Imagery" in html and "Esri" in html and "cdnjs.cloudflare.com/ajax/libs/leaflet" in html
-    start = html.index("const DATA = ") + len("const DATA = ")
-    blob = html[start : html.index(";\nconst K = ", start)]
-    assert json.loads(blob)["grid"] == data["grid"]
+    assert explore.DATA_MARK not in html
+    start = html.index('type="application/json">') + len('type="application/json">')
+    blob = html[start : html.index("</script>", start)]
+    assert "<" not in blob and json.loads(blob)["grid"] == data["grid"]  # "<" escaped: inert inside the tag
+
+
+def test_app_html_comes_from_the_override_a_local_build_the_cache_or_the_release(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    app = f"<html>{explore.DATA_MARK}</html>"
+    monkeypatch.delenv("COUGARMAP_EXPLORE_APP")
+    monkeypatch.setattr(explore, "PROJECT_ROOT", tmp_path / "src")
+    monkeypatch.setattr(explore, "CACHE_DIR", tmp_path / "cache")
+    monkeypatch.setattr(explore, "version", lambda _: "9.9.9")
+    calls: list[str] = []
+
+    class Resp:
+        text = app
+
+    def fake_get(url: str, **_: Any) -> Resp:
+        calls.append(url)
+        return Resp()
+
+    monkeypatch.setattr(net, "get", fake_get)
+    logs: list[str] = []
+    assert explore.app_html(logs.append) == app  # downloaded once, from this version's release
+    assert calls == ["https://github.com/bryantclark/cougarmap/releases/download/v9.9.9/cougarmap-explore.html"]
+    assert logs and "first --interactive run" in logs[0]
+    assert explore.app_html(logs.append) == app and len(calls) == 1  # then from the cache
+    built = tmp_path / "src" / "explore-app" / "dist" / "index.html"
+    built.parent.mkdir(parents=True)
+    built.write_text("local " + app)
+    assert explore.app_html().startswith("local")  # a source checkout's own build comes first
+    monkeypatch.setenv("COUGARMAP_EXPLORE_APP", str(built))
+    assert explore.app_html().startswith("local")
+
+
+def test_app_download_fails_loudly(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("COUGARMAP_EXPLORE_APP")
+    monkeypatch.setattr(explore, "PROJECT_ROOT", tmp_path)
+    monkeypatch.setattr(explore, "CACHE_DIR", tmp_path / "cache")
+
+    def offline(url: str, **_: Any) -> Any:
+        raise RuntimeError("request failed")
+
+    monkeypatch.setattr(net, "get", offline)
+    with pytest.raises(RuntimeError, match="could not download the weights app"):
+        explore.app_html(lambda *_: None)
+
+    class NotTheApp:
+        text = "<html>a 404 page</html>"
+
+    monkeypatch.setattr(net, "get", lambda url, **_: NotTheApp())
+    with pytest.raises(RuntimeError, match="is not the weights app"):
+        explore.app_html(lambda *_: None)
+    assert not (tmp_path / "cache").exists() or not any((tmp_path / "cache").rglob("*.html"))
+    monkeypatch.setenv("COUGARMAP_EXPLORE_APP", str(tmp_path / "broken.html"))
+    (tmp_path / "broken.html").write_text("<html>no marker</html>")
+    with pytest.raises(RuntimeError, match="no single place"):
+        explore.render({"x": 1})
 
 
 # ---- the kernel under node ----------------------------------------------------------------------------------
@@ -124,7 +186,7 @@ def _node(data: dict[str, Any], tmp_path: Path, **settings: Any) -> dict[str, An
     return result
 
 
-def _reference_final(data: dict[str, Any], w: dict[str, float], on: dict[str, bool]) -> Floats:
+def _reference_final(data: dict[str, Any], w: dict[str, float], on: dict[str, Any], usable: str = "usable") -> Floats:
     """The page's score in numpy, from the decoded payload: analyze.combine and the site penalties on the page
     grid (the kernel must agree with this to float32 rounding)."""
     L = {k: explore.decode(v) for k, v in data["layers"].items()}
@@ -137,9 +199,9 @@ def _reference_final(data: dict[str, Any], w: dict[str, float], on: dict[str, bo
     top *= 1 + h["water_floor"]
     score = np.clip(100 * h["score_scale"] * s / top, 0, 100)
     for p in explore.PENALTIES:
-        if on[p]:
-            score = score * L[p]
-    out: Floats = np.where(L["usable"] > 0, score, 0).astype("float32")
+        strength = 1.0 if on[p] is True else 0.0 if on[p] is False else float(on[p])
+        score = score * L[p] ** strength  # a penalty slider: the model's multiplier to its strength
+    out: Floats = np.where(L[usable] > 0, score, 0).astype("float32")
     return out
 
 
@@ -180,6 +242,32 @@ def test_kernel_follows_the_sliders(data: dict[str, Any], tmp_path: Path) -> Non
     assert off["spots"] == []  # every weight at 0: nothing scores
 
 
+@pytest.mark.skipif(NODE is None, reason="node is not installed")
+def test_only_the_weight_ratios_matter(data: dict[str, Any], tmp_path: Path) -> None:
+    """The page's sliders are shares that add up to 100%: the model's score divides by the sum of the weights, so
+    scaling every weight changes nothing."""
+    share = {k: data["weights"][k] / sum(data["weights"][k] for k in explore.WEIGHTED) for k in explore.WEIGHTED}
+    a = _node(data, tmp_path, final=True)
+    b = _node(data, tmp_path, weights=dict(data["weights"], **share), final=True)
+    assert np.abs(np.array(a["final"]) - np.array(b["final"])).max() < 1e-3 and a["spots"] == b["spots"]
+
+
+@pytest.mark.skipif(NODE is None, reason="node is not installed")
+def test_penalty_strengths_and_the_private_list(state: ModelState, data: dict[str, Any], tmp_path: Path) -> None:
+    on = dict(paved=0.5, houses=2.0, recreation=0.0)
+    r = _node(data, tmp_path, on=on, final=True)
+    final = np.array(r["final"], "float32").reshape(data["grid"]["height"], data["grid"]["width"])
+    assert np.abs(final - _reference_final(data, data["weights"], on)).max() < 1e-3
+    # at the model's settings, the private list is the model's P spots
+    py = data["model_private_spots"]
+    js = _node(data, tmp_path)["private_spots"]
+    assert len(js) == len(py)
+    for p, j in zip(py, js, strict=True):
+        ax, ay = state.fine.from_lonlat(p["lon"], p["lat"])
+        bx, by = state.fine.from_lonlat(j["lon"], j["lat"])
+        assert math.hypot(float(ax) - float(bx), float(ay) - float(by)) <= 30
+
+
 # ---- the surfaces -------------------------------------------------------------------------------------------
 
 
@@ -187,7 +275,7 @@ def test_repick_interactive_writes_the_page(area: str) -> None:
     r = api.repick(area, interactive=True)
     page = Path(r["summary"]["outputs"]["explore"])
     assert page.name == explore.FILE_NAME and page.parent == Path(r["summary"]["outputs"]["kmz"]).parent
-    assert page.stat().st_size < 10_000_000 and "CougarKernel" in page.read_text()
+    assert page.stat().st_size < 10_000_000 and explore.DATA_MARK not in page.read_text()
     assert "explore" not in api.repick(area)["summary"]["outputs"]
 
 

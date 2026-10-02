@@ -1,0 +1,26 @@
+{
+  "name": "cougarmap-explore",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "CougarMap's weights page: a slider per factor moves the camera spots live (built into one HTML file).",
+  "scripts": {
+    "dev": "vite build -c vite.worker.config.ts && vite",
+    "build": "vite build -c vite.worker.config.ts && tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "maplibre-gl": "^6.11.2",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.4",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.2",
+    "vite-plugin-singlefile": "^2.3.3"
+  }
+}

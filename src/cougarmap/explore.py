@@ -1,14 +1,15 @@
 """The interactive weights page (`explore.html`, opt-in: `--interactive`): one self-contained local HTML file next
-to the KMZ where a weight slider per factor moves the top camera spots live.
+to the KMZ where a slider per factor weight and site penalty moves the top camera spots live.
 
-The page recomputes the camera-spot score in the browser (explore.js, a line-for-line port of analyze.combine,
-the site penalties and pick_candidates' peak picking) from the per-cell inputs the weights act on, embedded here
-on a coarser grid:
+The page is a small app (React + MapLibre, built from explore-app/ into one HTML file, downloaded on the first
+--interactive run: app_html) with this area's payload inlined. It recomputes the camera-spot score in the browser
+(explore-app/src/kernel.js, a port of analyze.combine, the site penalties and pick_candidates' peak picking) from
+the per-cell inputs the weights act on, embedded here on a coarser grid:
 
 - the five weighted layers (wind, edges, pinch, water, travel), block means of the fine grid, uint8;
 - the habitat x season multiplier (analyze.combine's `habitat * season`), which no slider changes, uint16;
-- the site penalties (paved road, houses, recreation) as multipliers, uint8, so each can be switched off;
-- the usable ground (public land within the walk limit, the main spot list's rules): a block is usable when at
+- the site penalties (paved road, houses, recreation) as multipliers, uint8, so each can be weakened or dropped;
+- the usable ground, public (the main spot list's rules) and private (the P spots'): a block is usable when at
   least half its fine cells are.
 
 Each layer is deflate-compressed and base64-encoded. Cells are about EXPLORE_RES_M (a whole number of fine
@@ -21,8 +22,9 @@ from __future__ import annotations
 import base64
 import json
 import math
+import os
 import zlib
-from importlib.resources import files
+from importlib.metadata import version
 from pathlib import Path
 from typing import Any
 
@@ -30,14 +32,21 @@ import numpy as np
 import numpy.typing as npt
 from shapely.geometry import MultiPolygon, Polygon
 
+from . import net
 from .analyze import PEAK_FLOOR, PEAK_MIN, PEAK_REL, Spot, site_penalty_parts
 from .arrays import Floats, Mask
+from .config import CACHE_DIR, MILE_M, PROJECT_ROOT
+from .context import Log
+from .export import _arrows, _route
 from .grid import Grid
 from .state import ModelState
 
 EXPLORE_RES_M = 10.0  # target page cell size: the camera zone (20 m sigma) spans two cells
 EXPLORE_MAX_CELLS = 1_000_000  # ~11 MB of raw layers before compression; bigger areas get coarser cells
 FILE_NAME = "explore.html"
+APP_FILE = "cougarmap-explore.html"  # the app's release asset
+APP_URL = "https://github.com/bryantclark/cougarmap/releases/download/v{version}/" + APP_FILE
+DATA_MARK = "__COUGARMAP_DATA__"  # where the app takes the area's payload (inside a JSON script tag)
 WEIGHTED = ("wind", "edges", "pinch", "water", "travel")
 PENALTIES = ("paved", "houses", "recreation")
 
@@ -151,10 +160,10 @@ def _spot(c: Spot) -> JSON:
     )
 
 
-def payload(st: ModelState, cands: list[Spot]) -> JSON:
+def payload(st: ModelState, cands: list[Spot], private: list[Spot]) -> JSON:
     """Everything the page needs: the coarse layers, the model's weights and picking rules, the georeference,
-    the area outline, the user's water/sign pins and the model's own spots (the faint ghosts). st must have its
-    masks applied (analyze.apply_masks)."""
+    the area outline, the user's water/sign pins and the model's own spots, public and private (the faint
+    ghosts). st must have its masks applied (analyze.apply_masks)."""
     A, o = st.layers, st.opts
     w, h = o.weights, o.weights.habitat
     f = block_factor(st.fine)
@@ -166,16 +175,20 @@ def payload(st: ModelState, cands: list[Spot]) -> JSON:
         for _, part in (p for p in parts if p[0] == name):
             pen *= part
         layers[name] = _layer(block_mean(pen, f), "uint8")
-    usable: Mask = block_mean(A["usable"], f) >= 0.5
-    layers["usable"] = dict(dtype="uint8", scale=1.0, shape=list(usable.shape), data=encode(usable.astype("uint8")))
+    for name in ("usable", "usable_private"):
+        m: Mask = block_mean(A[name], f) >= 0.5  # type: ignore[literal-required]
+        layers[name] = dict(dtype="uint8", scale=1.0, shape=list(m.shape), data=encode(m.astype("uint8")))
+    usable = decode(layers["usable"])
     shape = (int(usable.shape[0]), int(usable.shape[1]))
+    for name, a in map_layers(st).items():
+        layers[name] = _layer(block_mean(a, f), "uint8")
     pins = [
         dict(name=p["name"], kind=p["kind"], lat=round(p["lat"], 6), lon=round(p["lon"], 6))
         for p in o.user_points or st.aoi.user_points
         if p["kind"] in ("water", "seasonal_water", "sign")
     ]
     return dict(
-        version=1,
+        version=2,
         area=st.aoi.name,
         month=st.month,
         grid=dict(height=shape[0], width=shape[1], res=st.fine.res * f, fine_res=st.fine.res, block=f),
@@ -204,23 +217,87 @@ def payload(st: ModelState, cands: list[Spot]) -> JSON:
         outline=_rings(st.aoi.geom),
         pins=pins,
         model_spots=[_spot(c) for c in cands],
+        model_private_spots=[_spot(c) for c in private],
+        features=features(st, cands + private),
     )
 
 
-def kernel_js() -> str:
-    """The page's scoring and picking code (also run under node by the tests)."""
-    return files("cougarmap").joinpath("explore.js").read_text()
+def map_layers(st: ModelState) -> dict[str, Floats]:
+    """The KMZ's other raster layers, for the page's layer menu (no slider changes them): the hunting edge, winter
+    ground (winter months), public and private land and the ground within the walk limit."""
+    A = st.layers
+    out: dict[str, Floats] = {
+        "edge_meadow": A["edge_meadow"],
+        "public": A["public"].astype("float32"),
+        "private": (~A["public"]).astype("float32"),
+        "reach": (A["walk_m"] <= st.opts.max_walk_miles * MILE_M).astype("float32"),
+    }
+    if float(A["season"].min()) < 1:
+        out["winter"] = st.up(A["winter_mid"])
+    return {k: np.where(st.aoi_mask, v, 0).astype("float32") for k, v in out.items()}
 
 
-def render(data: JSON) -> str:
-    """The page: the template with the kernel and the payload inlined (one file, no other local files)."""
-    page = files("cougarmap").joinpath("explore_page.html").read_text()
-    blob = json.dumps(data, separators=(",", ":")).replace("</", "<\\/")
-    return page.replace("/*__KERNEL__*/", kernel_js()).replace("/*__PAYLOAD__*/null", blob)
+def _ll(pts: Any) -> list[list[float]]:
+    return [[round(float(x), 6), round(float(y), 6)] for x, y in pts]
 
 
-def write_page(st: ModelState, cands: list[Spot], out_dir: Path) -> Path:
+def features(st: ModelState, spots: list[Spot]) -> JSON:
+    """The KMZ's line and point folders as lon/lat: worn trails (lidar), the walking routes to the model's spots,
+    the dawn/dusk air-flow arrows and the saddles."""
+    A = st.layers
+    return dict(
+        worn=[dict(mapped=bool(ln["mapped"]), coords=_ll(ln["lonlat"])) for ln in A["worn_lines"]],
+        routes=[dict(name=c["name"], coords=_ll(rt)) for c in spots if (rt := _route(st, c))],
+        airflow=[_ll(a) for a in _arrows(st)],
+        saddles=[
+            dict(rise_m=round(float(sd["rise_m"]), 1), coords=_ll([st.mid.to_lonlat(sd["x"], sd["y"])])[0])
+            for sd in A["saddle_points"]
+        ],
+    )
+
+
+def app_html(log: Log = print) -> str:
+    """The weights app: one HTML file (React + MapLibre, built from explore-app/) the payload is injected into.
+    It is not in the Python package (it would double its size): the first --interactive run downloads the build
+    attached to this version's GitHub release into the cache. COUGARMAP_EXPLORE_APP (a file) and a source
+    checkout's own build (explore-app/dist) come first."""
+    env = os.environ.get("COUGARMAP_EXPLORE_APP")
+    if env:
+        return Path(env).read_text(encoding="utf-8")
+    local = PROJECT_ROOT / "explore-app" / "dist" / "index.html"
+    if local.exists():
+        return local.read_text(encoding="utf-8")
+    ver = version("cougarmap")
+    cached = CACHE_DIR / "explore-app" / ver / APP_FILE
+    if not cached.exists():
+        url = APP_URL.format(version=ver)
+        log(f"downloading the weights app (first --interactive run, ~1 MB): {url}")
+        try:
+            html = net.get(url, timeout=60, retries=2).text
+        except RuntimeError as e:
+            raise RuntimeError(
+                f"could not download the weights app for cougarmap {ver} ({e}). Check the internet connection "
+                "and try again; a development checkout can build it instead: cd explore-app && npm ci && npm run build"
+            ) from e
+        if html.count(DATA_MARK) != 1:
+            raise RuntimeError(f"{url} is not the weights app")
+        cached.parent.mkdir(parents=True, exist_ok=True)
+        cached.write_text(html, encoding="utf-8")
+    return cached.read_text(encoding="utf-8")
+
+
+def render(data: JSON, log: Log = print) -> str:
+    """The page: the app with this area's payload inlined (one file, nothing else local)."""
+    page = app_html(log)
+    if page.count(DATA_MARK) != 1:
+        raise RuntimeError("the weights app has no single place for the area's data: rebuild or re-download it")
+    blob = json.dumps(data, separators=(",", ":")).replace("<", "\\u003c")  # inert inside its <script> tag
+    head, tail = page.split(DATA_MARK)
+    return head + blob + tail
+
+
+def write_page(st: ModelState, cands: list[Spot], private: list[Spot], out_dir: Path, log: Log = print) -> Path:
     """Write explore.html for an analyzed area into its output folder and return its path."""
     path = Path(out_dir) / FILE_NAME
-    path.write_text(render(payload(st, cands)), encoding="utf-8")
+    path.write_text(render(payload(st, cands, private), log), encoding="utf-8")
     return path

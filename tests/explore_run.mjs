@@ -1,12 +1,12 @@
-// Runs the interactive page's kernel (src/cougarmap/explore.js) under node, for tests/test_explore.py.
-//   node explore_run.cjs <kernel.js> <payload.json> [settings.json]
+// Runs the weights page's kernel (explore-app/src/kernel.js) under node, for tests/test_explore.py.
+//   node explore_run.mjs <kernel.js> <payload.json> [settings.json]
 // settings: {weights: {...}, on: {paved, houses, recreation}, n, final: true}; missing keys take the model's.
-// Prints {spots: [{row, col, score, rank, zone, lat, lon}], final?: [...] (the ranked score, row-major)}.
-"use strict";
-const fs = require("fs");
-const zlib = require("zlib");
+// Prints {spots: [{row, col, score, rank, zone, lat, lon}], private_spots, ms, final?: [...] (row-major)}.
+import fs from "node:fs";
+import zlib from "node:zlib";
+import { pathToFileURL } from "node:url";
 
-const K = require(process.argv[2]);
+const K = await import(pathToFileURL(process.argv[2]).href);
 const data = JSON.parse(fs.readFileSync(process.argv[3], "utf8"));
 const settings = process.argv[4] ? JSON.parse(fs.readFileSync(process.argv[4], "utf8")) : {};
 
@@ -29,10 +29,11 @@ const t0 = process.hrtime.bigint();
 const r = K.run(L, data, w, on, n);
 const ms = Number(process.hrtime.bigint() - t0) / 1e6;
 const { height: H, width: W } = data.grid;
-const spots = r.spots.map((s) => {
-  const [lat, lon] = K.cellLatLon(data.geo, H, W, s.row, s.col);
-  return { ...s, lat, lon };
-});
-const out = { spots, ms };
+const place = (spots) =>
+  (spots || []).map((s) => {
+    const [lat, lon] = K.cellLatLon(data.geo, H, W, s.row, s.col);
+    return { ...s, lat, lon };
+  });
+const out = { spots: place(r.spots), private_spots: place(r.privateSpots), ms };
 if (settings.final) out.final = Array.from(r.final);
 process.stdout.write(JSON.stringify(out));

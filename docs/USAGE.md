@@ -60,10 +60,13 @@ longitude missing its minus sign is made west, with a note. `explain` and `log-c
 latitude and longitude numbers: put `--` before them so a negative longitude isn't read as an option. When
 `hotspots` or `analyze` finishes it prints a `file://` link to the map, and at a terminal it opens the map in
 Google Earth (`--no-open` skips that). `--interactive` (on `analyze`, `hotspots` and `repick`) also writes
-`explore.html` next to the map and opens it in the browser: a slider per factor weight, switches for the people
-penalties, and the top spots moving live as you drag, with the model's own spots as faint rings. It is a local
-file in your results folder (about 3 MB for a 3 km area); only the map library and the satellite imagery come from
-the web. Errors print one line; `COUGARMAP_DEBUG=1` shows the traceback.
+`explore.html` next to the map and opens it in the browser: a slider per factor (their shares of the score, adding
+up to 100%), a slider per people penalty, and the top spots moving live as you drag, on public land or, with one
+switch, on private land (the P spots), with the model's own spots as dashed rings. Its layer menu has the KMZ's
+layers: score heat, each factor's map, public and private land, walking range, worn trails, walking routes, air
+flow and saddles, on satellite, hybrid or topo maps, flat or in 3D. It is a local file in your results folder
+(about 6 MB for a 3 km area); only the map tiles and fonts come from the web. The first `--interactive` run
+downloads the page's app (about 2 MB, once per CougarMap version) into the cache. Errors print one line; `COUGARMAP_DEBUG=1` shows the traceback.
 `cougarmap <command> --help` lists every option.
 
 ### Field log

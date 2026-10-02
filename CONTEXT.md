@@ -32,7 +32,8 @@ and travel, tested against human camera picks, open GPS collar data, and real li
 - **Shared field log** — someone's own field-log records as one file (`share-results`), added to another log with
   `import-results` under the sender's name (`sam/M1`); a newer file from the same sender replaces the older one.
 - **Weights page** — `explore.html`, written with `--interactive` / `interactive=True`: a local page where the
-  factor weights are sliders and the top Spots move live. It reruns the score on a coarser grid; it never changes
+  factor weights (as shares of the score) and the site penalties are sliders and the top Spots, public or private,
+  move live. It reruns the score on a coarser grid; it never changes
   the saved State or the KMZ.
 - **Job** — a background run (analysis, hotspots) the agent polls with `job_status`.
 

@@ -120,7 +120,7 @@ def analyze_area(
     a.user_points = [p for p in known if p["kind"] in ("water", "seasonal_water", "sign")]
     res = run(a, _opts(month, max_walk_miles, wind_from_deg, n_candidates, fast), log=log)
     if interactive:
-        _explore_page(res["state"], res["candidates"], res["summary"], log)
+        _explore_page(res["state"], res["candidates"], res["private_candidates"], res["summary"], log)
     return dict(
         summary=res["summary"],
         candidates=_strip(res["candidates"]),
@@ -128,11 +128,11 @@ def analyze_area(
     )
 
 
-def _explore_page(st: ModelState, cands: list[Spot], summary: JSON, log: Log) -> None:
+def _explore_page(st: ModelState, cands: list[Spot], private: list[Spot], summary: JSON, log: Log) -> None:
     """Write the interactive weights page next to the KMZ and list it in the summary's outputs."""
     from .explore import write_page
 
-    path = write_page(st, cands, Path(summary["outputs"]["kmz"]).parent)
+    path = write_page(st, cands, private, Path(summary["outputs"]["kmz"]).parent, log)
     summary["outputs"]["explore"] = str(path)
     log(f"wrote {path}")
 
@@ -538,7 +538,7 @@ def repick(
         _STATES.saved(path)
         summary["outputs"] = {k: str(v) for k, v in paths.items()}
         if interactive:
-            _explore_page(st, cands, summary, lambda *_: None)
+            _explore_page(st, cands, priv, summary, lambda *_: None)
     return dict(summary=summary, candidates=_strip(cands), private_candidates=_strip(priv))
 
 
