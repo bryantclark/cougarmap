@@ -705,8 +705,9 @@ def compute_land(ctx: Context, log: Log = print) -> None:
 
 
 def compute_houses(ctx: Context, log: Log = print) -> None:
-    """Houses within houses_radius_m of each cell: how populated the area is (towns, subdivisions), not whether
-    there is a building nearby. Footprints under house_min_m2 (sheds, blinds, trailers) don't count."""
+    """Houses within houses_radius_m of each cell: how many people are around (each house costs a little, towns
+    and subdivisions a lot: analyze.site_penalty). Footprints under house_min_m2 (sheds, blinds, trailers) don't
+    count."""
     g, o = ctx.fine, ctx.opts
     log("populated areas (houses)...")
     m = np.zeros(g.shape, "float32")

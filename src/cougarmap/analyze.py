@@ -125,11 +125,13 @@ def traffic_penalty(paved_dist: Floats, opts: Options) -> Floats:
 
 
 def site_penalty(A: Layers, opts: Options) -> Floats:
-    """Score multiplier for people around a spot: paved-road traffic, populated areas (people, dogs, theft) and
-    recreation sites (trailheads, campgrounds, parking)."""
+    """Score multiplier for people around a spot: paved-road traffic, houses (a little for each, a lot in
+    populated areas: people, dogs, theft) and recreation sites (trailheads, campgrounds, parking)."""
     pen = np.ones(A["score"].shape, "float32")
     pen *= traffic_penalty(A["paved_dist"], opts)
     pen *= 1 - opts.houses_penalty * ramp(A["houses"], opts.houses_from, opts.houses_full)
+    if opts.houses_exponent:
+        pen *= np.power(1 + np.clip(A["houses"], 0, None), -opts.houses_exponent).astype("float32")
     pen *= 1 - opts.rec_penalty * ramp(A["rec_dist"], opts.rec_reach_m, opts.rec_full_m)
     return pen
 
@@ -631,9 +633,15 @@ def _people_reasons(st: ModelState, c: Cell) -> list[str]:
     if rec < o.rec_reach_m and "rec_dist" not in st.unmodeled:
         out.append(f"{rec:.0f} m from a trailhead/campground/parking area: people (score reduced)")
     n = int(A["houses"][c.row, c.col])
+    e = o.houses_exponent
     if n > o.houses_from:
         out.append(
             f"populated area: {n} houses within {o.houses_radius_m:.0f} m - people, dogs, camera theft (score reduced)"
+        )
+    elif n >= 1 and e:
+        out.append(
+            f"{n} house{'s' if n > 1 else ''} within {o.houses_radius_m:.0f} m: people, dogs, camera theft "
+            f"(score x{(1 + n) ** -e:.2f})"
         )
     return out
 

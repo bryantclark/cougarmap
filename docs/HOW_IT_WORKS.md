@@ -80,7 +80,9 @@ pin.
   tracks and trails cost nothing.
 - **Populated areas:** houses (footprints of 50 m2 or more) within 500 m. Up to 15 houses there is no cut, fading
   to x0.3 at 60 houses, about 76 per km2. That is the density below which 99% of eastern Washington cougar use
-  falls (Maletzke et al. 2017). Single houses, barns and homesteads cost nothing, because lions use them.
+  falls (Maletzke et al. 2017). On top of that every house costs a little: x(1 + houses)^-0.34, so 1 house x0.79,
+  5 x0.54, 15 x0.39, 60 x0.25 (x0.074 with the populated-area cut). Chosen on open camera and collar data and the
+  human picks ([experiments/10](experiments/10-house-cost.md)).
 - **Recreation sites** (OpenStreetMap trailheads, campgrounds, picnic sites, parking, toilets, shelters): x0.7
   within 50 m, fading to x1 at 400 m.
 

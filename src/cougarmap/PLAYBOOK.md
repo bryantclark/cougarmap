@@ -23,7 +23,8 @@ slopes); other ridge spines get half. In winter (November-April) the habitat als
 ground with shallow snow, where deer winter, and (December-March, Washington) mapped deer/elk winter range.
 Paved roads cut the score out to 800 m (traffic, people, theft), and so do populated areas (more than 15
 houses within 500 m; about 60 gets the full cut) and trailheads, campgrounds and parking areas (out to 400 m).
-Single houses, barns and homesteads don't count: lions use them. Gravel and forest roads don't count either.
+A few houses cost a little too (people, dogs, camera theft): 1 house within 500 m x0.79, 5 x0.54, 15 x0.39; the
+spot's reasons say so ("3 houses within 500 m ... score x0.62"). Gravel and forest roads don't count.
 
 **Alternate on the trail.** Each spot may carry a `trail_alternate`: the best cell within 150 m beside a quiet
 road or trail (a closed forest road, a forest road closed that month, a two-track, a path), away from
