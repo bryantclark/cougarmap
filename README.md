@@ -22,17 +22,23 @@ uv tool install --python 3.12 git+https://github.com/bryantclark/cougarmap
 On Windows, install uv with `powershell -c "irm https://astral.sh/uv/install.ps1 | iex"` and then run the same
 `uv tool install` line.
 
-**2. Find camera spots near a coordinate.** Give latitude and longitude the way Google Maps copies them. West
-longitudes are negative.
+**2. Find camera spots around a coordinate.** Give latitude and longitude the way Google Maps copies them. West
+longitudes are negative. This analyzes everything within 3 km of the point in detail:
 
 ```bash
-cougarmap hotspots 47.3712, -116.1029 --radius-km 15
+cougarmap analyze --near "47.3712, -116.1029" --radius-km 3
 ```
 
-The first run in a new region takes a few minutes, mostly downloading elevation and map data. Later runs take
+The first run in a new place takes a few minutes, mostly downloading elevation and map data. Later runs take
 under a minute. When it finishes, it prints the best spots and a link to the map, and opens the map in
-[Google Earth Pro](https://www.google.com/earth/about/versions/) (free). A place name works too:
-`cougarmap hotspots "Missoula, MT"`.
+[Google Earth Pro](https://www.google.com/earth/about/versions/) (free).
+
+To search a whole region around a town instead, use `hotspots`. It screens a 25 km circle and analyzes the
+most promising blocks:
+
+```bash
+cougarmap hotspots "Missoula, MT"
+```
 
 **3. (Optional) Use it from your AI assistant.**
 
