@@ -9,19 +9,25 @@ Northwest.
 
 ## Quick start
 
-**1. Install.** You need [uv](https://docs.astral.sh/uv/), which brings its own Python:
+**1. Install.** On a Mac or Linux, in a terminal:
 
 ```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
+curl -LsSf https://raw.githubusercontent.com/bryantclark/cougarmap/main/installer/install.sh | sh
 ```
 
-```bash
-uv tool install --python 3.12 cougarmap
+On Windows, in PowerShell:
+
+```powershell
+powershell -c "irm https://raw.githubusercontent.com/bryantclark/cougarmap/main/installer/install.ps1 | iex"
 ```
 
-On Windows, install uv with `powershell -c "irm https://astral.sh/uv/install.ps1 | iex"` and then run the same
-`uv tool install` line. No terminal? Download `CougarMap-installer.zip` from the
-[latest release](https://github.com/bryantclark/cougarmap/releases/latest) and double-click the installer in it.
+It installs [uv](https://docs.astral.sh/uv/) (which brings its own Python) if you don't have it, installs
+CougarMap, and connects it to the AI apps it finds (step 3). Run it again any time to update. Then open a new
+terminal window so the `cougarmap` command is found.
+
+- Already have uv? `uv tool install --python 3.12 cougarmap` installs just the command.
+- No terminal? Download `CougarMap-installer.zip` from the
+  [latest release](https://github.com/bryantclark/cougarmap/releases/latest) and double-click the installer in it.
 
 **2. Find camera spots around a coordinate.** Give latitude and longitude the way Google Maps copies them. Optionally use the --radius-km flag to set a radius size. 
 
@@ -40,14 +46,13 @@ most promising blocks:
 cougarmap hotspots "Missoula, MT"
 ```
 
-**3. (Optional) Use it from your AI assistant.**
+**3. Use it from your AI assistant.** The installer already connected CougarMap to the AI apps it found on your
+computer: Claude, Codex, Gemini CLI, Antigravity or Cursor. Restart the app, then ask *"find me cougar camera
+spots near Missoula, MT"*. If you installed with `uv tool install`, or added an app later, run:
 
 ```bash
 cougarmap setup
 ```
-
-This connects CougarMap to the AI apps it finds on your computer: Claude, Codex, Gemini CLI, Antigravity or
-Cursor. Restart the app, then ask *"find me cougar camera spots near Missoula, MT"*.
 
 ## What you get
 
