@@ -51,7 +51,6 @@ async def find_hotspots(
     kml: str | None = None,
     area_name: str | None = None,
     month: int | None = None,
-    public_only: bool = True,
     max_walk_miles: float = 1.0,
     blocks: int = 3,
     wait_seconds: float = 30,
@@ -59,8 +58,8 @@ async def find_hotspots(
     """Find mountain lion hotspots and trail-camera spots. Use this for "find cougar hotspots near X".
     location: place name ("Missoula, MT") or "lat,lon". radius_km: search radius (default 25; <= 4 analyzes that
     circle directly, e.g. a property). Or kml + area_name for an area drawn in Google Earth.
-    public_only=False includes private land (e.g. the user's own property) in the main list; with the default,
-    private-land spots still come back separately (private_spots) and as hidden KMZ layers. month 1-12 (default: now).
+    Spots are on public land; private-land spots (e.g. the user's own property) come back separately
+    (private_candidates) and as hidden KMZ layers. month 1-12 (default: now).
     Runs in the background: if the result says state=running, call job_status(job_id) until done."""
     return await _job(
         "hotspots",
@@ -70,7 +69,6 @@ async def find_hotspots(
             kml=kml,
             area_name=area_name,
             month=month,
-            public_only=public_only,
             max_walk_miles=max_walk_miles,
             blocks=blocks,
         ),
@@ -102,7 +100,6 @@ async def analyze_area(
     area_name: str | None = None,
     bbox: list[float] | None = None,
     month: int | None = None,
-    public_only: bool = True,
     max_walk_miles: float = 1.0,
     wind_from_deg: float | None = None,
     n_candidates: int = 15,
@@ -120,7 +117,6 @@ async def analyze_area(
             area_name=area_name,
             bbox=bbox,
             month=month,
-            public_only=public_only,
             max_walk_miles=max_walk_miles,
             wind_from_deg=wind_from_deg,
             n_candidates=n_candidates,
@@ -134,7 +130,6 @@ async def scout_region(
     location: str,
     radius_km: float = 40.0,
     month: int | None = None,
-    public_only: bool = True,
     max_walk_miles: float = 1.0,
     top: int = 8,
     wait_seconds: float = 30,
@@ -147,7 +142,6 @@ async def scout_region(
             location=location,
             radius_km=radius_km,
             month=month,
-            public_only=public_only,
             max_walk_miles=max_walk_miles,
             top=top,
         ),
@@ -161,13 +155,11 @@ async def repick(
     n_candidates: int = 15,
     per_zone: int = 3,
     spacing_m: float = 150.0,
-    public_only: bool | None = None,
     max_walk_miles: float | None = None,
 ) -> JSON:
     """Re-select camera spots from an area already analyzed (more/fewer, more spread out with per_zone=1, a
-    shorter walk limit, public_only on/off) and rewrite its KMZ. Takes seconds, no rerun, including switching
-    private land in or out. area = the area's name or folder."""
-    return await _bg(api.repick, area, n_candidates, per_zone, spacing_m, public_only, max_walk_miles)
+    shorter walk limit) and rewrite its KMZ. Takes seconds, no rerun. area = the area's name or folder."""
+    return await _bg(api.repick, area, n_candidates, per_zone, spacing_m, max_walk_miles)
 
 
 @server.tool(structured_output=False)

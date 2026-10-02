@@ -193,7 +193,6 @@ class Options:
     rec_penalty: float = 0.3  # score is cut by up to this much beside one
     rec_full_m: float = 50.0  # the full cut applies this close
     rec_reach_m: float = 400.0  # the cut fades out linearly by this distance
-    public_only: bool = True  # drop anything not on open-access public land
     n_candidates: int = 15
     candidate_spacing_m: float = 150.0
     per_zone: int = 3  # at most this many spots within zone_radius_m of each other (spread picks across hotspots)

@@ -43,8 +43,9 @@ Hard rules: within **1 mile of walking** (along the easiest route) from a road t
 
 - **"Find cougar areas near X"**: `scout_region(X)` -> pick the top 3-4 blocks -> `analyze_area(bbox=block.bbox)`
   for each -> report. Default radius 40 km; month = the current month unless the user names a season.
-- **"Scan my property at ..."/"include private land"**: `public_only=False`. If they give a KML outline, use it.
-  For an area already analyzed, don't rerun: use its `private_candidates` or `repick(area, public_only=False)`.
+- **"Scan my property at ..."/"include private land"**: a small radius (about 1.5 km) or their KML outline, then
+  report the result's `private_candidates`. For an area already analyzed, don't rerun: its `private_candidates`
+  are already there.
 - **An area in their Google Earth file** (imported with `import_kml`): `list_areas` then `analyze_area(kml=..., area_name=...)`.
   Big areas (100+ km2) take a few minutes the first time (downloads); tell the user before starting.
 - **"Assume the wind is from the west"**: `wind_from_deg=270`. The model's default wind is the high-pressure

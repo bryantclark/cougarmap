@@ -30,7 +30,7 @@ configs follow each app's documentation but have not been run live.
 Things to ask:
 
 - "Find cougar camera spots near Missoula, MT for November."
-- "Scan my property at 47.3712, -116.1029, include private land."
+- "Scan my property at 47.3712, -116.1029." (its private-land spots come back separately)
 - "Import my Google Earth file at ~/Downloads/my-areas.kml and look at the North Ridge area."
 - "Why is spot 3 good?" / "Give me more spread-out spots." / "Only within half a mile of the road."
 - "Assume the wind is from the west."
@@ -44,7 +44,7 @@ cougarmap hotspots 47.3712, -116.1029 --radius-km 15
 cougarmap hotspots "Missoula, MT" --background && cougarmap jobs
 cougarmap scout "Missoula, MT" --radius-km 40              # a quick regional screen
 cougarmap analyze --bbox=-116.13,47.35,-116.08,47.39        # one area in detail
-cougarmap analyze --near "47.3712, -116.1029" --radius-km 2 --include-private
+cougarmap analyze --near "47.3712, -116.1029" --radius-km 2     # e.g. your property: see its P1, P2... spots
 cougarmap import-kml ~/Downloads/my-areas.kml               # your outlines and water pins
 cougarmap analyze --kml ~/Documents/CougarMap/my-data/my-areas.kml --area "North Ridge"
 cougarmap repick north-ridge --n 20 --per-zone 1
