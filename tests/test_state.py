@@ -152,7 +152,7 @@ def test_schema_saves_what_the_model_explains_with() -> None:
     landform_mid flowx_mid flown_mid windx_mid windn_mid walk_pred_mid travel travel_pos_mid context edge_density
     water_density paved_dist closed_track_mid land_names land_access water_labels saddle_points meadow_ha
     rec_dist travel_gate_mid travel_thermal_mid edge_q_drain edge_q_wind season winter_mid winter_range_mid
-    trail_kind worn_lines worn_unmapped"""
+    trail_kind worn_lines worn_unmapped pinch_water pinch_water_kind"""
     assert set(SAVED) == set(keep.split())
 
 
@@ -195,6 +195,7 @@ V5_LAYERS = (
     "winter_range_mid",
     "trail_kind",
 )
+V7_LAYERS = ("pinch_water", "pinch_water_kind")
 
 
 def _version1_tree() -> dict[str, Any]:
@@ -215,6 +216,7 @@ def _version1_tree() -> dict[str, Any]:
         "walk_any_pred_mid",
         "houses",
         *V5_LAYERS,
+        *V7_LAYERS,
         "lake",
         "windx_mid",
         "windn_mid",
@@ -250,6 +252,7 @@ def test_migrate_fills_what_old_states_lack(tmp_path: Path) -> None:
         "paved_dist",
         "houses",
         *V5_LAYERS,
+        *V7_LAYERS,
     }
     assert np.array_equal(A["walk_any_m"], A["walk_m"]) and A["walk_any_m"][0, 0] == 99.0
     assert np.array_equal(A["windx_mid"], A["drainx_mid"])
@@ -282,6 +285,22 @@ def test_version4_states_migrate_to_the_v5_layers(tmp_path: Path) -> None:
     assert (A["rec_dist"] == state.PAVED_DIST_CAP_M).all() and (A["travel_gate_mid"] == 1).all()
     assert not A["edge_q_drain"].any() and not A["edge_q_wind"].any() and not A["travel_thermal_mid"].any()
     assert (A["season"] == 1).all() and not A["winter_mid"].any() and not A["winter_range_mid"].any()
+
+
+def test_version6_states_have_no_water_pinch(tmp_path: Path) -> None:
+    """States before ponds were pinch barriers get the component as unmodeled zeros; their saved pinch stays the
+    one they were scored with, so a repick ranks them exactly as before."""
+    st = toys.state()
+    st.layers["pinch"][:] = 0.5
+    save_state(st, tmp_path / "s.pkl")
+    tree = statefile.load(tmp_path / "s.pkl")
+    tree["slim"]["version"] = 6
+    for k in V7_LAYERS:
+        del tree["arrays"][k]
+    old = migrate(tree)
+    A = old.layers
+    assert set(V7_LAYERS) <= old.unmodeled and set(A) == set(SAVED)
+    assert not A["pinch_water"].any() and not A["pinch_water_kind"].any() and (A["pinch"] == 0.5).all()
 
 
 def test_states_from_a_newer_version_are_refused() -> None:

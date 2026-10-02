@@ -650,7 +650,22 @@ def _pinch_reasons(st: ModelState, c: Cell) -> list[str]:
         out.append("natural travel funnel (movement concentrates here)")
     if A["pinch_fence"][row, col] > 0.15:
         out.append("along a fence/rail line")
+    water = float(A["pinch_water"][row, col])
+    parts = (A["pinch_saddle"], A["pinch_cliffbase"], A["pinch_clifftop"], A["pinch_bank"], A["pinch_fence"])
+    strongest = max(float(p[row, col]) for p in (*parts, A["pinch_funnel"]))
+    if water > WATER_PINCH_REASON and water >= strongest:  # only where the water is what makes the pinch
+        out.append(WATER_PINCH_REASONS[int(A["pinch_water_kind"][row, col])])
     return out
+
+
+WATER_PINCH_REASON = 0.2
+WATER_PINCH_REASONS = {
+    factors.WATER_PINCH_CLIFF: "between a pond/lake and a cliff - animals skirting the water pass through the gap",
+    factors.WATER_PINCH_STEEP: "between a pond/lake and the slope - animals skirting the water pass through the gap",
+    factors.WATER_PINCH_OPENING: "between a pond/lake and an opening - the strip of cover animals pass along",
+    factors.WATER_PINCH_POND: "between two ponds/lakes - animals pass through the gap",
+    factors.WATER_PINCH_END: "at a pond's inlet or outlet - where travel along the draw crosses the shore",
+}
 
 
 def _water_reasons(A: Layers, c: Cell) -> list[str]:

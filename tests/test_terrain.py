@@ -28,6 +28,11 @@ def test_flow_accumulation_valley_collects() -> None:
     acc = T.flow_accumulation(z, RES)
     c = z.shape[1] // 2
     assert acc[190, c] > 50 * acc[190, c + 30]
+    rec, acc2 = T.d8_flow(z, RES)
+    assert np.array_equal(acc, acc2)
+    i = np.nonzero(rec >= 0)[0]
+    assert len(i) > 0.9 * z.size and (z.ravel()[rec[i]] <= z.ravel()[i]).all()  # every receiver is downhill
+    assert (acc2.ravel()[rec[i]] > acc2.ravel()[i]).all()  # ... and collects more
 
 
 @pytest.mark.parametrize("res", [5.0, 10.0, 20.0])

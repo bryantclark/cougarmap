@@ -540,10 +540,8 @@ def _fill_eps(z: F64) -> tuple[F64, I64]:
 
 
 @jit(parallel=True)
-def _d8_accumulate(z: F64, res: float, low_first: I64) -> F64:
-    """D8 contributing cells. low_first: cells by nondecreasing z (the fill's queue order). Every receiver is
-    strictly lower than its donor, so walking that order backwards passes each cell's total on only after all its
-    donors (ties in z cannot be donor and receiver, and sums of whole cell counts are exact in any order)."""
+def _d8_receivers(z: F64, res: float) -> I64:
+    """Each cell's D8 receiver (flat index of its steepest strictly lower neighbour, -1 = none)."""
     H, W = z.shape
     rec = np.full(H * W, -1, np.int64)
     for r in prange(H):
@@ -557,19 +555,34 @@ def _d8_accumulate(z: F64, res: float, low_first: I64) -> F64:
                 if s > best:
                     best, bi = s, rr * W + cc
             rec[r * W + c] = bi
-    acc = np.ones(H * W, np.float64)
-    for t in range(H * W - 1, -1, -1):
+    return rec
+
+
+@jit()
+def _d8_accumulate(rec: I64, low_first: I64) -> F64:
+    """D8 contributing cells. low_first: cells by nondecreasing z (the fill's queue order). Every receiver is
+    strictly lower than its donor, so walking that order backwards passes each cell's total on only after all its
+    donors (ties in z cannot be donor and receiver, and sums of whole cell counts are exact in any order)."""
+    acc = np.ones(rec.size, np.float64)
+    for t in range(rec.size - 1, -1, -1):
         i = low_first[t]
         j = rec[i]
         if j >= 0:
             acc[j] += acc[i]
-    return acc.reshape(H, W)
+    return acc
+
+
+def d8_flow(z: Floats, res: float) -> tuple[I64, F64]:
+    """D8 on a depression-filled DEM: each cell's receiver (flat index, -1 at the edge) and its upslope
+    contributing area (m^2)."""
+    f, low_first = _fill_eps(z.astype(np.float64))
+    rec = _d8_receivers(f, float(res))
+    return rec, _d8_accumulate(rec, low_first).reshape(z.shape) * res * res
 
 
 def flow_accumulation(z: Floats, res: float) -> F64:
     """Upslope contributing area (m^2) using D8 on a depression-filled DEM."""
-    f, low_first = _fill_eps(z.astype(np.float64))
-    return _d8_accumulate(f, float(res), low_first) * res * res
+    return d8_flow(z, res)[1]
 
 
 @jit()

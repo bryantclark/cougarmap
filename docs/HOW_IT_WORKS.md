@@ -46,7 +46,11 @@ The four factors, weighted wind 0.35, edges 0.30, pinch points 0.20 and water 0.
   best. Openings come from the 1 m canopy height map; road and trail cuts don't count.
 - **Pinch points.** Saddles (from geomorphons), the base of cliffs and escarpments (measured from the foot of the
   whole steep band, not the rock face), stream and lake banks, fences, and funnels from a circuit-theory
-  current map.
+  current map. Ponds and lakes (NHD, 0.02 ha and up) are barriers animals walk around: land within 45 m of a
+  shore with another barrier across from the water (a cliff, ground of 35 degrees or more, an opening, another
+  pond) counts as a squeeze, full where the gap is 40 m or less and gone at 100 m, and so do the inlets and
+  outlets of ponds under 5 ha, where travel along the draw crosses the shore. The strongest part counts, plus
+  0.1 for each extra one above 0.3.
 - **Limited water.** Springs, seeps, intermittent and ephemeral streams, and ponds and marshes under 5 ha. Water
   counts more when it is scarce: the only water within a mile gets a bonus, and big lakes (5 ha or more) make
   nearby water less scarce. The 5 ha size is our model choice. Water you pin in Google Earth counts at full
