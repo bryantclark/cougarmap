@@ -79,6 +79,19 @@ lifted within-array camera concordance in open SNAPSHOT USA data out of region (
   line's placebo scored 80-94%, against 50% for the real line, so its gain is terrain signal, not field
   structure. Repeat this for any new terrain term.
 
+### Worn trails (lidar): a hint, not a factor
+
+The opt-in worn-trail layer (`worn.py`, 1 m 3DEP lidar) recovers 58% of the mapped OpenStreetMap tracks and paths
+in the human-pick areas, and about 75% of what it finds is on no map. 32% of the human-picked sites sit within
+15 m of an unmapped worn line, against 11-16% for matched control points: people picking by hand put cameras by
+these lines. Added to the score in any of the forms tried (a travel term, a multiplier near any or only unmapped
+lines), it did not improve the human-pick ranks (median 43.3-47.3% against 43.5%, vsR flat, per-site changes
+even or worse), so it changes no score and only offers each spot a `worn_trail` hint on where to face the camera.
+With it on, the spots and scores are byte-identical to a run with it off (`tests/test_worn.py` checks this on the
+synthetic area). The production creek-bank mask removed a quarter of the raw detections on the small human-pick
+area, at a cost of 5 points of mapped-track recall; the pick-proximity numbers predate it.
+[experiments/11-worn-trails.md](experiments/11-worn-trails.md) has the details.
+
 ## Lion truth (field data)
 
 The human-pick numbers measure whether the tool agrees with people picking by hand. What they can't show

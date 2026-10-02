@@ -20,7 +20,7 @@ and travel, tested against human camera picks, open GPS collar data, and real li
 - **State** — `state.pkl`: an Area's layers and options, saved so **Repick**, **Explain**, and **Validate** run
   without recomputing. Versioned and migrated.
 - **Spot** (candidate) — a ranked camera location with a score (0–100, 60+ strong), plain-English reasons, walk
-  distance/time, land owner, and an optional **Trail alternate**. Private-land spots are **Private candidates**
+  distance/time, land owner, an optional **Trail alternate** and an optional **Worn-trail hint**. Private-land spots are **Private candidates**
   (`P1`, `P2`…).
 - **Zone** — a group of nearby camera sites used to pair a model camera with a control camera.
 - **Camera deployment** — a camera put out at a site, with an **Arm** (`model`, `human`, `control`), a zone, and
@@ -36,7 +36,7 @@ and travel, tested against human camera picks, open GPS collar data, and real li
 ## Relationships
 
 ```
-Region ──scout──< Area ── State ──< Spot (─ Trail alternate)
+Region ──scout──< Area ── State ──< Spot (─ Trail alternate, ─ Worn-trail hint)
                    │
                    └──< Zone ──< Camera deployment ──< Check
 Field log ──< Camera deployment | Snow track | Transect
@@ -67,6 +67,9 @@ Field log ──< Camera deployment | Snow track | Transect
   or dirt road: `trail_type` game-trail, hiking-trail, closed-road, open-dirt), off-feature (none, paved), or
   unrecorded. A field call, not a map one; cameras are compared like with like by placement. *Not* the Trail
   alternate, which is a different spot on a mapped line.
+- **Worn trail** — a trail tread found in 1 m bare-earth lidar (a game trail, cattle trail or old two-track),
+  mapped or not; opt-in (`worn_trails`). A **Worn-trail hint** (`worn_trail`) names the nearest one on no map
+  within 30 m of a Spot, as where to face the camera. It changes no score and never moves the Spot.
 
 ## Examples / canonical dialogues
 

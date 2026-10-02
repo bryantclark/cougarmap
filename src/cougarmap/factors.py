@@ -21,7 +21,7 @@ from shapely.geometry.base import BaseGeometry
 
 from . import terrain as T
 from .arrays import Floats, Ints, Mask
-from .config import MILE_M, PLACEMENT, WATER, WINTER, EdgeBand, Winter
+from .config import MILE_M, PLACEMENT, WATER, WINTER, WORN, EdgeBand, Winter
 from .context import Context, Log
 from .corridor import funnel_score
 from .grid import Grid
@@ -48,6 +48,7 @@ __all__ = [
     "compute_travel",
     "compute_water",
     "compute_wind",
+    "compute_worn_trails",
     "daytime_wind_deg",
     "drain_strength",
     "wind_terms",
@@ -798,6 +799,56 @@ def compute_trails(ctx: Context, log: Log = print) -> None:
         if m.any():
             kind[T.edt(m, g.res) <= PLACEMENT.on_m] = code
     A["trail_kind"] = kind
+
+
+def compute_worn_trails(ctx: Context, log: Log = print) -> None:
+    """Worn trails from the area's 1 m lidar (worn.py; Options.worn_trails): every line for the KMZ, and the fine
+    cells of the lines on no map (not within WORN.mapped_m of an OpenStreetMap highway or an MVUM road) for the
+    per-spot hint. Lines running along a channel are dropped as creek banks: mapped flowlines and waterbody shores
+    (NHD), and channels the fine DEM drains at least WORN.channel_min_m2 into. For the KMZ layer and the hint
+    only: it changes no score."""
+    from . import worn
+
+    A, g, L = ctx.layers, ctx.fine, ctx.lidar1m
+    A["worn_lines"], A["worn_unmapped"] = [], np.zeros(g.shape, bool)
+    if L is None:  # the option is off, or there is no 1 m lidar (context notes why)
+        return
+    log("worn trails (1 m lidar)...")
+    water = [f.xy for f in ctx.water["flowlines"]] + [f.xy.boundary for f in ctx.water["waterbodies"]]
+    channels = g.mask(water) | (T.flow_accumulation(ctx.z, g.res) >= WORN.channel_min_m2)
+    near_d, (near_r, near_c) = T.edt_nearest(channels, g.res)
+
+    def to_channel(rows: Ints, cols: Ints) -> tuple[Floats, Floats, Floats]:
+        fr, fc, ok = worn.fine_cells(rows, cols, L.grid, g)
+        fr, fc = np.clip(fr, 0, g.height - 1), np.clip(fc, 0, g.width - 1)
+        x, y = L.grid.xy(rows, cols)
+        cx, cy = g.xy(near_r[fr, fc], near_c[fr, fc])
+        vx, vy = cx - x, y - cy  # towards the channel, x = column (east), y = row (south)
+        far = ~ok | (near_r[fr, fc] < 0) | ~np.isfinite(near_d[fr, fc])
+        return np.where(far, np.inf, np.hypot(vx, vy)), vx, vy
+
+    inside = L.grid.mask([L.grid.project(ctx.aoi.geom)])
+    det = worn.detect(L.z, inside, to_channel)
+    ctx.lidar1m = None  # nothing else reads the 1 m DEM: free it before the rest of the run
+    mapped = _lines(ctx.osm, lambda p: bool(p.get("highway"))) + _lines(ctx.mvum)
+    mapped_d = T.edt(g.mask(mapped), g.res)
+    rr, cc = np.nonzero(det.lines)
+    fr, fc, ok = worn.fine_cells(rr, cc, L.grid, g)
+    fr, fc = fr[ok], fc[ok]
+    on_map = mapped_d[fr, fc] <= WORN.mapped_m
+    by_kind = np.zeros(det.lines.shape, np.int8)
+    by_kind[rr[ok], cc[ok]] = np.where(on_map, 1, 2)
+    A["worn_unmapped"][fr[~on_map], fc[~on_map]] = True
+    lines = []
+    for code, is_mapped in ((1, True), (2, False)):
+        for ln in worn.vectorize(by_kind == code, L.grid):
+            lon, lat = g.to_lonlat(*np.asarray(ln.coords).T)
+            pts = [(round(float(a), 6), round(float(b), 6)) for a, b in zip(lon, lat, strict=True)]
+            lines.append(worn.WornLine(lonlat=pts, mapped=is_mapped, length_m=round(ln.length, 1)))
+    A["worn_lines"] = lines
+    km = sum(ln["length_m"] for ln in lines) / 1000
+    off = sum(ln["length_m"] for ln in lines if not ln["mapped"]) / 1000
+    log(f"  {km:.0f} km of worn lines, {off:.0f} km on no map ({det.creek_cells} m along channels dropped)")
 
 
 class Roads(NamedTuple):

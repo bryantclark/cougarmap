@@ -103,6 +103,9 @@ def _desc(c: Spot) -> str:
     )
     alt = c.get("trail_alternate")
     alt_p = f"<p><i>Optional: {html.escape(alt['reason'])}; {alt['lat']:.6f}, {alt['lon']:.6f}</i></p>" if alt else ""
+    worn = c.get("worn_trail")
+    if worn:
+        alt_p += f"<p><i>Placement hint: {html.escape(worn['reason'])}; {worn['lat']:.6f}, {worn['lon']:.6f}</i></p>"
     return (
         f"<b>Score {c['score']:.0f}</b> ({c['factors_on']} of 4 factors strong)<br/>"
         f"<ul>{reasons}</ul><table>{bars}</table>{alt_p}"
@@ -183,6 +186,8 @@ def kml_doc(result: Result, overlays: dict[str, Overlay]) -> str:
         '<Style id="cand"><IconStyle><color>ff0080ff</color><scale>1.0</scale><Icon><href>http://maps.google.com/mapfiles/kml/paddle/orange-circle.png</href></Icon></IconStyle></Style>',
         '<Style id="private"><IconStyle><color>ffff80ff</color><scale>1.0</scale><Icon><href>http://maps.google.com/mapfiles/kml/paddle/purple-circle.png</href></Icon></IconStyle></Style>',
         '<Style id="trail"><IconStyle><color>ff00c000</color><scale>0.9</scale><Icon><href>http://maps.google.com/mapfiles/kml/paddle/grn-diamond.png</href></Icon></IconStyle></Style>',
+        '<Style id="worn_unmapped"><LineStyle><color>ff0060ff</color><width>2.5</width></LineStyle></Style>',
+        '<Style id="worn_mapped"><LineStyle><color>a0c8c8c8</color><width>1.5</width></LineStyle></Style>',
         '<Style id="route"><LineStyle><color>ff00ffff</color><width>2</width></LineStyle></Style>',
         '<Style id="arrow"><LineStyle><color>b0ffcc66</color><width>1.5</width></LineStyle></Style>',
         '<Style id="aoi"><LineStyle><color>ff2dc0fb</color><width>2</width></LineStyle>'
@@ -234,6 +239,7 @@ def kml_doc(result: Result, overlays: dict[str, Overlay]) -> str:
                 f"<Point><coordinates>{a['lon']:.6f},{a['lat']:.6f},0</coordinates></Point></Placemark>"
             )
         parts.append("</Folder>")
+    parts.extend(_worn_folder(st))
     # routes
     parts.append("<Folder><name>Walking routes from road</name><visibility>0</visibility>")
     for c in cands + priv:
@@ -276,6 +282,28 @@ def kml_doc(result: Result, overlays: dict[str, Overlay]) -> str:
         )
     parts.append("</Folder></Document></kml>")
     return "\n".join(parts)
+
+
+def _worn_folder(st: ModelState) -> list[str]:
+    """Worn trails from 1 m lidar, off by default: the ones on no map bright, those on a mapped road or trail grey."""
+    lines = st.layers["worn_lines"]
+    if not lines:
+        return []
+    parts = ["<Folder><name>Worn trails (lidar)</name><visibility>0</visibility>"]
+    for mapped, name in ((False, "On no map (game trails, old tracks)"), (True, "On a mapped road or trail")):
+        parts.append(f"<Folder><name>{name}</name><visibility>0</visibility>")
+        for ln in lines:
+            if ln["mapped"] is not mapped:
+                continue
+            coords = " ".join(f"{x:.6f},{y:.6f},0" for x, y in ln["lonlat"])
+            parts.append(
+                f"<Placemark><name>{ln['length_m']:.0f} m</name><visibility>0</visibility>"
+                f"<styleUrl>#worn_{'mapped' if mapped else 'unmapped'}</styleUrl>"
+                f"<LineString><tessellate>1</tessellate><coordinates>{coords}</coordinates></LineString></Placemark>"
+            )
+        parts.append("</Folder>")
+    parts.append("</Folder>")
+    return parts
 
 
 def _common(w: dict[str, Any]) -> str:

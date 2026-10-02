@@ -15,7 +15,7 @@ from . import context, factors
 from . import terrain as T
 from .aoi import AOI
 from .arrays import Floats, Ints, Mask
-from .config import MILE_M, OUT_DIR, PLACEMENT, WINTER, Options, Weights
+from .config import MILE_M, OUT_DIR, PLACEMENT, WINTER, WORN, Options, Weights
 from .context import Log
 from .sources import weather
 from .sources.weather import compass
@@ -35,6 +35,16 @@ class TrailAlternate(TypedDict):
     kind: str  # factors.TRAIL_KINDS
     open_to_vehicles: bool  # on a road open to vehicles that month (more traffic, theft)
     walk_miles: float | None
+    reason: str
+
+
+class WornTrail(TypedDict):
+    """The nearest unmapped worn line (1 m lidar) near a spot: where to face the camera, offered beside the spot."""
+
+    lat: float  # the nearest point of the line
+    lon: float
+    distance_m: int
+    direction: str  # compass direction from the spot
     reason: str
 
 
@@ -59,6 +69,7 @@ class Spot(TypedDict):
     canopy_m: float
     slope_deg: float
     trail_alternate: TrailAlternate | None  # None: none within reach, or the spot already watches one
+    worn_trail: WornTrail | None  # None: no unmapped worn line within WORN.hint_m (or the layer is off)
     row: int
     col: int
     rank: NotRequired[int]
@@ -154,6 +165,7 @@ def run(aoi: AOI, opts: Options | None = None, log: Log = print, out_dir: Path |
         factors.compute_access,
         factors.compute_traffic,
         factors.compute_trails,
+        factors.compute_worn_trails,  # after compute_terrain (the fine DEM's channels)
         factors.compute_houses,
         factors.compute_recreation,
     ):
@@ -343,6 +355,7 @@ def describe(st: ModelState, row: int, col: int, final: Floats | None = None) ->
         canopy_m=round(float(st.chm[row, col]), 1),
         slope_deg=round(float(A["slope"][row, col]), 1),
         trail_alternate=trail_alternate(st, c, final),
+        worn_trail=worn_hint(st, c),
         row=row,
         col=col,
     )
@@ -407,6 +420,32 @@ def trail_alternate(st: ModelState, c: Cell, final: Floats) -> TrailAlternate | 
             if d > 2 * p.on_m
             else f"the {line} passes {d:.0f} m {direction} of this spot: a camera can face it from here ({why})"
         ),
+    )
+
+
+def worn_hint(st: ModelState, c: Cell) -> WornTrail | None:
+    """The nearest unmapped worn line (factors.compute_worn_trails) within WORN.hint_m of the cell, as a hint on
+    where to face the camera. It changes no score and never moves the spot."""
+    mask = st.layers["worn_unmapped"]
+    reach = int(WORN.hint_m / st.fine.res) + 1
+    rc = _nearest(mask, c.row, c.col, reach)
+    if rc is None:
+        return None
+    x, y = st.fine.xy(*rc)
+    d = math.hypot(float(x) - c.x, float(y) - c.y)
+    if d > WORN.hint_m:
+        return None
+    lon, lat = st.fine.to_lonlat(x, y)
+    direction = compass(math.degrees(math.atan2(float(x) - c.x, float(y) - c.y)))
+    what = "a worn line on no map (1 m lidar: a game trail or old track; check it on the ground)"
+    if d <= st.fine.res:
+        how = f"{what} runs through this spot: hang the camera beside it, facing along it"
+    elif d <= WORN.facing_m:
+        how = f"{what} {d:.0f} m {direction}: hang the camera facing it"
+    else:
+        how = f"{what} {d:.0f} m {direction}: hang the camera a few metres toward it, facing it"
+    return WornTrail(
+        lat=round(float(lat), 6), lon=round(float(lon), 6), distance_m=round(d), direction=direction, reason=how
     )
 
 
@@ -705,6 +744,21 @@ def pick_notes(cands: list[Spot], usable: Mask) -> list[str]:
     ]
 
 
+def worn_summary(st: ModelState, cands: list[Spot]) -> dict[str, Any]:
+    """The worn-trail layer in the summary: whether it was computed, and how much it found."""
+    lines = st.layers["worn_lines"]
+    if not st.opts.worn_trails:
+        return dict(on=False, how="worn_trails=True (CLI: --worn-trails) adds worn trails from 1 m lidar")
+    km = sum(ln["length_m"] for ln in lines) / 1000
+    return dict(
+        on=True,
+        km=round(km, 1),
+        unmapped_km=round(sum(ln["length_m"] for ln in lines if not ln["mapped"]) / 1000, 1),
+        spots_with_hint=sum(c["worn_trail"] is not None for c in cands),
+        layer="hidden in the KMZ: 'Worn trails (lidar)' folder",
+    )
+
+
 def summarize(st: ModelState, cands: list[Spot], runtime: float, private_cands: list[Spot]) -> dict[str, Any]:
     A = st.layers
     w = st.wind
@@ -745,6 +799,7 @@ def summarize(st: ModelState, cands: list[Spot], runtime: float, private_cands: 
             best_score=private_cands[0]["score"] if private_cands else 0,
             layer="hidden in the KMZ: 'Private land spots' folder and 'Lion score on private land' layer",
         ),
+        worn_trails=worn_summary(st, cands),
         notes=[*st.notes, *pick_notes(cands, A["usable"])],
         runtime_s=round(runtime, 1),
     )

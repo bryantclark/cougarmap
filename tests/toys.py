@@ -77,6 +77,8 @@ def blank_layers(fine: Grid, mid: Grid) -> Layers:
         season=np.ones(fine.shape, "float32"),
         winter_range_mid=np.zeros(mid.shape, bool),
         trail_kind=np.zeros(fine.shape, np.int8),
+        worn_lines=[],
+        worn_unmapped=np.zeros(fine.shape, bool),
     )
     for k in ("walk_m", "walk_s", "walk_any_m", "walk_any_s"):
         raw[k] = np.full(fine.shape, 300.0, "float32")

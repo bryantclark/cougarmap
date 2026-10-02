@@ -35,6 +35,17 @@ ground: see the placement line below), so the spot stays the pick: mention the a
 `open_to_vehicles` is true it sits on or beside a road open that month: say so (more traffic, theft risk). In
 the KMZ they are a hidden folder ("Alternate spots on a trail/two-track").
 
+**Worn trails (lidar), opt-in.** With `worn_trails=True` (`--worn-trails`) the run also finds worn trails in 1 m
+lidar where the USGS has it: game trails, cattle trails and old two-tracks show as narrow troughs and benches,
+most of them on no map. They go in a hidden KMZ folder ("Worn trails (lidar)": ones on no map bright, ones on a
+mapped road or trail grey), and each spot within 30 m of one on no map gets a `worn_trail` hint: where to face
+the camera ("a worn line on no map 20 m N: hang the camera facing it"). It changes no score and never moves the
+spot: give it in one line after the spot's reasons, as a placement tip, and say it is from lidar (check it on
+the ground). It is off by default because a first run downloads about 110 MB more per area and takes about 40 s
+longer; turn it on when the user asks about game trails or exact camera placement, or for a small area such as a
+property. `summary.worn_trails` says whether it ran and how much it found; `summary.notes` says when there is no
+1 m lidar there. Faint two-tracks across flat open meadows are often missed.
+
 **Two winds.** Reasons name the wind they mean: the dawn/dusk high-pressure wind (`summary.wind.prevailing_from`)
 for where it lines up with cold-air drainage and for the windward side of ridges, and the daytime high-pressure
 wind (`daytime_from`) for the downwind ends of openings. Both are the method's: don't present them as a
@@ -56,6 +67,7 @@ the user asks or the public spots are weak; they need landowner permission.
 | "use this KML" / gives a file path | `import_kml(path)` first, so their water/sign pins are used |
 | "why is spot #3 good?" | `explain_point(area, lat, lon)` |
 | "more spread out", "more spots", "within 2 miles" (same area) | `repick(area, ...)` (seconds, no re-download) |
+| "where are the game trails?", "exactly where do I hang it?" | `find_hotspots(..., worn_trails=True)` (a rerun of that area) |
 | "what about private land there?" (same area) | read `private_candidates` from the last result (no rerun) |
 | "I put a camera out at LAT,LON" | `log_camera(lat, lon, name, arm, zone, start, ...)` (see Field log below) |
 | "checked camera X: a cougar on Nov 3 at 5:40" | `log_check(deployment="X", events=[...])` |
@@ -96,7 +108,8 @@ Month: use the current month unless the user names a season or month. The wind c
   facing along it. In SNAPSHOT USA camera arrays, cameras on trails and dirt roads caught about 3x more lions
   than other cameras in the same array. Maps don't show most game trails, so this is a field call: the spot says
   where, the trail through it says exactly where.
-- When a spot has a `trail_alternate`, add it in one line after the spot's reasons, as an option.
+- When a spot has a `trail_alternate`, add it in one line after the spot's reasons, as an option. A
+  `worn_trail` hint (worn trails on) goes in one line too, as where to face the camera.
 - Brief caveats, once: the wind is modeled rather than measured (check it in the field), prey isn't modeled, and
   small water sources are often missing from maps. City/county parks and some state land restrict trail
   cameras, so check with whoever manages the land (the land name is in each result).

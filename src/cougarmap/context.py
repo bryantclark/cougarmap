@@ -14,11 +14,12 @@ from affine import Affine
 
 from .aoi import AOI
 from .arrays import Floats
-from .config import MILE_M, WINTER, Options
+from .config import MILE_M, WINTER, WORN, Options
 from .grid import Grid
 from .sources import buildings as bld_src
 from .sources import canopy as canopy_src
 from .sources import dem as dem_src
+from .sources import lidar as lidar_src
 from .sources import snow as snow_src
 from .sources import vector as vec
 from .sources import weather
@@ -42,6 +43,7 @@ class Context(ModelState):
     rec_points: list[Feature] = field(default_factory=list)  # trailheads, campgrounds, parking (OpenStreetMap)
     snow_cm: tuple[Floats, Affine] | None = None  # winter months: typical snow depth (cm, lon/lat grid; SNODAS)
     phs: list[Feature] = field(default_factory=list)  # deer/elk winter range (WDFW PHS), in its months
+    lidar1m: lidar_src.Lidar1m | None = None  # Options.worn_trails: the area's 1 m lidar (None: off or unavailable)
     cache: dict[tuple[Any, ...], np.ndarray] = field(default_factory=dict, repr=False)  # masks shared by factors
 
     def memo(self, key: tuple[Any, ...], fn: Callable[[], np.ndarray]) -> np.ndarray:
@@ -100,6 +102,16 @@ def fetch(aoi: AOI, opts: Options, fine: Grid, mid: Grid, log: Log = print) -> d
         ),
         wind=lambda: weather.prevailing(lat, lon, month, opts.wind_from_deg),
     )
+    if opts.worn_trails and aoi.area_km2() <= WORN.max_km2:
+
+        def lidar1m() -> lidar_src.Lidar1m | None:
+            try:
+                return lidar_src.fetch_lidar_1m(lidar_src.lidar_grid(aoi.geom, fine.epsg, WORN.pad_m))
+            except Exception as e:  # TNM or the tile store is occasionally down; the run goes on without the layer
+                log(f"  1 m lidar unavailable ({e}); no worn-trail layer")
+                return None
+
+        jobs["lidar1m"] = lidar1m
     if month in WINTER.months:  # the winter module's inputs: nothing new is downloaded the rest of the year
 
         def snow() -> tuple[Floats, Affine] | None:
@@ -118,6 +130,7 @@ def fetch(aoi: AOI, opts: Options, fine: Grid, mid: Grid, log: Log = print) -> d
         "elevation, canopy height, water (NHD), roads/trails/fences (OpenStreetMap), forest road seasons (MVUM), "
         "public land (PAD-US), buildings, recreation sites, wind climate"
         + (", snow depth" if month in WINTER.months else "")
+        + (", 1 m lidar" if "lidar1m" in jobs else "")
         + "..."
     )
     with ThreadPoolExecutor(len(jobs)) as ex:
@@ -140,6 +153,12 @@ def build(aoi: AOI, opts: Options, log: Log = print) -> Context:
     d = fetch(aoi, opts, fine, mid, log=log)
     (z, info), (z_mid, _) = d["dem"], d["dem_mid"]
     log(f"  lidar coverage {info['lidar_fraction']:.0%}")
+    notes = (
+        ["No snow-depth data (SNODAS) for this run: the winter habitat ignores snow."]
+        if month in WINTER.months and d.get("snow") is None
+        else []
+    )
+    notes += _worn_notes(aoi, opts, d.get("lidar1m"))
     water: Water = d["water"]
     vec.project_features(
         [*d["osm"], *d["mvum"], *d["land"], *water["flowlines"], *water["waterbodies"], *d["rec"], *d.get("phs", [])],
@@ -165,7 +184,23 @@ def build(aoi: AOI, opts: Options, log: Log = print) -> Context:
         rec_points=d["rec"],
         snow_cm=d.get("snow"),
         phs=d.get("phs", []),
-        notes=["No snow-depth data (SNODAS) for this run: the winter habitat ignores snow."]
-        if month in WINTER.months and d.get("snow") is None
-        else [],
+        lidar1m=d.get("lidar1m") if d.get("lidar1m") is not None and d["lidar1m"].coverage > 0 else None,
+        notes=notes,
     )
+
+
+def _worn_notes(aoi: AOI, opts: Options, got: lidar_src.Lidar1m | None) -> list[str]:
+    """One line on why the worn-trail layer is missing or partial (Options.worn_trails only)."""
+    if not opts.worn_trails:
+        return []
+    if aoi.area_km2() > WORN.max_km2:
+        return [
+            f"No worn-trail layer: the area is over {WORN.max_km2:g} km2 (1 m lidar is analyzed for smaller areas)."
+        ]
+    if got is None:
+        return ["No worn-trail layer: the 1 m lidar could not be downloaded this time."]
+    if got.coverage == 0:
+        return ["No worn-trail layer: there is no 1 m lidar here."]
+    if got.coverage < 0.95:
+        return [f"Worn trails only where there is 1 m lidar ({got.coverage:.0%} of the area)."]
+    return []

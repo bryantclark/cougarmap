@@ -67,6 +67,10 @@ For each spot:
 The Google Earth map has the ranked pins (click one for its reasons), walking routes, dawn and dusk air-flow
 arrows, saddles, and a layer for each factor you can switch on and off.
 
+Add `--worn-trails` to also map game trails and old two-tracks from 1 m lidar, where the USGS has it. They sit in
+a map layer that starts switched off, and a spot right beside one on no map gets a tip on where to face the
+camera. Scores don't change. It makes a first run in a new place slower (about 110 MB more to download).
+
 The ranked spots are on **public land** within **1 mile of walking** from a road open that month. Private land is
 scored the same way and its best spots are found too, but kept apart: they're listed separately (P1, P2...) and
 sit in map layers that start switched off. Tick "Private land spots" in Google Earth to see them, for example to

@@ -39,8 +39,12 @@ runs the MCP server; `scripts/mcp_e2e.py` drives it end to end over the network.
   access rules (`apply_masks`), picks spots and writes the reasons. `export.py` writes the KMZ and JSON. `api.py`
   is what the CLI (`cli.py`), the MCP server (`mcp_server.py`) and background jobs (`jobs.py`) call; keep tool
   keyword arguments in sync across them.
-- `sources/` holds one module per data source (elevation, canopy, vector layers, buildings, weather, snow), all
-  cached under `~/.cache/cougarmap` by `net.py`.
+- `sources/` holds one module per data source (elevation, canopy, vector layers, buildings, weather, snow, and
+  `lidar.py`, the 1 m lidar window for worn trails), all cached under `~/.cache/cougarmap` by `net.py`.
+- `worn.py` is the worn-trail detector (oriented trough filters on the 1 m DEM, by FFT on threads; settings
+  `config.WornTrails`). `factors.compute_worn_trails` runs it when `Options.worn_trails` is on and keeps the lines
+  and the cells on no map; `analyze.worn_hint` gives each spot its hint. It must never change a score
+  (`tests/test_worn.py` compares the spots with it on and off).
 - `state.py` is the one schema of the model's layers (`Layers`, a TypedDict). Each layer's annotation says whether
   and how `state.pkl` keeps it (float16, float32 or as computed), so adding a layer is one line there. `ModelState`
   is what picking, explaining and export need, and `load_state` reads any saved state. States are versioned

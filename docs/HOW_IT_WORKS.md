@@ -102,6 +102,12 @@ pin.
   a recreation site, scoring at least 30 and at least half the spot's own score. Cameras on dirt roads and trails
   catch more of the lions that pass (Kolowski & Forrester 2017; Bassing et al. 2023). But good spots mostly sit
   off mapped lines, so this is offered as an option and never replaces the spot.
+- **Worn trails** (opt-in, no score change): with `--worn-trails`, game trails, cattle trails and old two-tracks
+  found in 1 m lidar (`worn.py`): oriented trough filters across the 1 m DEM, lines that traverse a slope rather
+  than run down it, a bench (flat tread between a cut and a fill) on sidehills, and no lines running along a
+  creek or channel. They go in a hidden KMZ layer, and a spot within 30 m of one on no map gets a hint on where
+  to face the camera. Human picks sit beside such lines far more often than control points, but as a score
+  factor they did not help ([experiments/11](experiments/11-worn-trails.md)).
 
 ## Scale
 

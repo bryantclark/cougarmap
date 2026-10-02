@@ -55,6 +55,7 @@ async def find_hotspots(
     max_walk_miles: float = 1.0,
     wind_from_deg: float | None = None,
     blocks: int = 3,
+    worn_trails: bool = False,
     wait_seconds: float = 30,
 ) -> JSON:
     """Find mountain lion hotspots and trail-camera spots: ranked spots with reasons and a Google Earth KMZ.
@@ -63,6 +64,8 @@ async def find_hotspots(
     area drawn in Google Earth), or bbox [west, south, east, north]. Spots are on public land within
     max_walk_miles of a road open that month; private-land spots come back separately (private_candidates).
     month 1-12 (default: now). wind_from_deg overrides the modeled prevailing wind (degrees it blows FROM).
+    worn_trails=True adds worn trails from 1 m lidar where it exists (slower on a first run): a hidden KMZ layer and
+    a worn_trail hint per spot (where to face the camera); scores do not change.
     Runs in the background: if the result says state=running, call job_status(job_id) until done."""
     return await _job(
         "hotspots",
@@ -76,6 +79,7 @@ async def find_hotspots(
             max_walk_miles=max_walk_miles,
             wind_from_deg=wind_from_deg,
             blocks=blocks,
+            worn_trails=worn_trails or None,  # job params keep only what was set
         ),
         wait_seconds,
     )

@@ -152,7 +152,7 @@ def test_schema_saves_what_the_model_explains_with() -> None:
     landform_mid flowx_mid flown_mid windx_mid windn_mid walk_pred_mid travel travel_pos_mid context edge_density
     water_density paved_dist closed_track_mid land_names land_access water_labels saddle_points meadow_ha
     rec_dist travel_gate_mid travel_thermal_mid edge_q_drain edge_q_wind season winter_mid winter_range_mid
-    trail_kind"""
+    trail_kind worn_lines worn_unmapped"""
     assert set(SAVED) == set(keep.split())
 
 

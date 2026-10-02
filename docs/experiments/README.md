@@ -16,6 +16,7 @@ didn't work. The current model is described in [../HOW_IT_WORKS.md](../HOW_IT_WO
 | 08 | [Agents and usability](08-agents-and-usability.md) | 2026-09-30 to 10-02 | Background jobs, seven agent apps, the private-land toggle, the legend, and a CLI that takes coordinates as typed |
 | 09 | [Open camera and collar data](09-open-camera-and-collar-data.md) | 2026-10-02 | SNAPSHOT USA cameras and 12 collar groups: production predicts detections within arrays (0.62), not yet in the inland Northwest (0.51); placement at the spot is worth ~3x; refits, 27 features, a CNN, a stronger winter and collar blends all failed |
 | 10 | [Every house costs a little](10-house-cost.md) | 2026-10-02 | x(1 + houses within 500 m)^-0.34: camera concordance +0.010 out of region, day beds up in 12/12 collar groups, median 43.5% -> 36.1% |
+| 11 | [Worn trails from 1 m lidar](11-worn-trails.md) | 2026-10-02 | Finds 58% of mapped tracks, mostly lines on no map; human picks sit near them, but as a score factor it doesn't help: a hint and a layer, off by default |
 
 ## How we experiment
 
