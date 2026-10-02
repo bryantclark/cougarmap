@@ -32,6 +32,11 @@ def _tools() -> dict[str, dict[str, Any]]:
     return {t.name: t.model_dump(mode="json")["input_schema"] for t in tools}
 
 
+def test_mcp_instructions_fit_the_clients_limit() -> None:
+    """Some MCP clients cut server instructions at 2 KB (CI checks the built wheel the same way)."""
+    assert len(mcp_server.INSTRUCTIONS) < 2048 and "trail_type" in mcp_server.INSTRUCTIONS
+
+
 def test_mcp_tool_names() -> None:
     assert set(_tools()) == {
         "find_hotspots",

@@ -63,6 +63,10 @@ Field log ──< Camera deployment | Snow track | Transect
   when the person who chose the human-picked cameras also placed the pins.
 - **Trail alternate** — an optional nearby spot on a quiet road or trail; offered as an option, never instead of
   the Spot.
+- **Placement** — where a camera is strapped at its spot: **on-feature** (beside a game trail, two-track, closed
+  or dirt road: `trail_type` game-trail, hiking-trail, closed-road, open-dirt), off-feature (none, paved), or
+  unrecorded. A field call, not a map one; cameras are compared like with like by placement. *Not* the Trail
+  alternate, which is a different spot on a mapped line.
 
 ## Examples / canonical dialogues
 

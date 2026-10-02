@@ -110,9 +110,17 @@ A **zone** is one test: two cameras put out on the same day, 150-500 m apart, an
 
   If the alternate says it is on a road open to vehicles, expect more people and a higher theft risk there.
 
+**Where exactly at the spot.** Set each camera beside the game trail, old two-track or closed road that runs
+through the spot (look within about 50 m), knee-to-waist high, a few metres off the line and facing along it.
+In the SNAPSHOT USA camera survey, cameras on trails and dirt roads caught about 3 times more lions than other
+cameras in the same array, and maps don't show most game trails, so this is your call on the ground. Do the
+same at the control camera, so the pair differs only in where the map put it.
+
 Keep everything else the same at both cameras: the camera model, the height, no lure (or the same lure at
 both), and a similar facing. North-facing avoids sun glare. Write down the height, the facing and the kind of
-trail at each camera (paved, open dirt road, closed road, hiking trail, game trail, none).
+trail at each camera (paved, open dirt road, closed road, hiking trail, game trail, none). The kind of trail
+matters most: the report compares a camera with on-trail cameras elsewhere only when it is on a trail too, and
+warns when the two cameras of a zone weren't placed alike.
 
 **Run them** for at least 2-3 months. Check both cameras of a zone on the same trip, every 4-6 weeks. At each
 check, log:

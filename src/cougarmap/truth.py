@@ -4,11 +4,14 @@ The human-pick check (evaluate.py) measures whether the tool agrees with spots p
 measure whether its scores line up with lions, each against its own null so a result can't come from where people
 happen to go:
 
-- **Cameras** (`camera_test`): cougar detections per 100 camera-nights for each arm, against the base rate of
-  random on-trail cameras in NE Washington (Bassing et al. 2023), and, where a model (or human) camera and a
-  control camera share a zone, the within-zone rate ratio with a paired permutation test (zones are compared
-  with themselves, so a good zone can't flatter one arm). An on-feature camera (the pick's "alternate on the
-  trail") is compared with the pick's own camera in its zone (arm model or human), or with an off-feature one.
+- **Cameras** (`camera_test`): cougar detections per 100 camera-nights for each arm and placement (on a trail
+  or dirt road, off one, or not recorded: fieldlog.placement_of). Only on-feature cameras are compared with the
+  base rate of random on-trail cameras in NE Washington (Bassing et al. 2023): on-trail cameras catch about 3x
+  more lions, so an off-trail camera measured against it would look like a miss. Where a model (or human) camera
+  and a control camera share a zone, the within-zone rate ratio with a paired permutation test (zones are
+  compared with themselves, so a good zone can't flatter one arm), with a warning when the two cameras of a zone
+  weren't placed alike. An on-feature camera (the pick's "alternate on the trail") is compared with the pick's
+  own camera in its zone (arm model or human), or with an off-feature one.
 - **Snow tracks** (`path_test`): the mean score along a followed track, against the same track shape rotated and
   shifted 100-1,500 m inside the area. A track scoring above its shifted copies walked where the model says
   lions walk. Across tracks, a sign test, also split by whether the track was found from a road (the copies
@@ -253,13 +256,15 @@ class CamStat:
     deer: int = 0
     elk: int = 0
     base_expected: float = 0.0  # cougar detections expected at the random on-trail base rate
+    placement: str = "unrecorded"  # fieldlog.PLACEMENTS: on-feature | off-feature | unrecorded
 
     @classmethod
     def of(cls, cam: Camera, cfg: Truth = TRUTH) -> CamStat:
         d = cam.dep
         base = sum(n * base_rate(m, cfg) / 100 for m, n in cam.nights_by_month.items())
         det = cam.detections
-        return cls(d["id"], d["arm"], d["zone"], cam.nights, det["cougar"], det["deer"], det["elk"], base)
+        place = fieldlog.placement_of(d)
+        return cls(d["id"], d["arm"], d["zone"], cam.nights, det["cougar"], det["deer"], det["elk"], base, place)
 
 
 def _per_100(det: float, nights: float) -> float | None:
@@ -267,27 +272,43 @@ def _per_100(det: float, nights: float) -> float | None:
 
 
 def arm_rates(cams: list[CamStat], cfg: Truth = TRUTH) -> JSON:
-    """Detections per 100 camera-nights by arm, against the base rate: vs_base > 1 is better than a random
-    on-trail camera; p_above_base is the one-sided Poisson p-value of doing that well by chance. Both are None
-    (and too_few_nights True) below cfg.min_nights camera-nights, as in the summary."""
+    """Detections per 100 camera-nights by arm (all its cameras, and by_placement), against the base rate of
+    random on-trail cameras for its on-feature cameras only: vs_base > 1 is better than a random on-trail camera;
+    p_above_base is the one-sided Poisson p-value of doing that well by chance. Both are None (and
+    too_few_nights True) below cfg.min_nights on-feature camera-nights, as in the summary. Off-feature and
+    unrecorded cameras are not comparable with that base rate (on-trail cameras catch about 3x more lions):
+    `not_compared` counts them."""
     out: JSON = {}
     for arm in fieldlog.ARMS:
         cs = [c for c in cams if c.arm == arm]
         if not cs:
             continue
         nights = sum(c.nights for c in cs)
-        det = sum(c.cougar for c in cs)
-        base = sum(c.base_expected for c in cs)
-        few = nights < cfg.min_nights
+        on = [c for c in cs if c.placement == "on-feature"]
+        on_nights = sum(c.nights for c in on)
+        on_det = sum(c.cougar for c in on)
+        base = sum(c.base_expected for c in on)
+        few = on_nights < cfg.min_nights
+        by_place = {}
+        for p in fieldlog.PLACEMENTS:
+            ps = [c for c in cs if c.placement == p]
+            if ps:
+                n_p, d_p = sum(c.nights for c in ps), sum(c.cougar for c in ps)
+                by_place[p] = dict(
+                    cameras=len(ps), camera_nights=round(n_p, 1), cougar=d_p, cougar_per_100=_per_100(d_p, n_p)
+                )
         out[arm] = dict(
             cameras=len(cs),
             camera_nights=round(nights, 1),
-            cougar=det,
-            cougar_per_100=_per_100(det, nights),
-            base_per_100=_per_100(base, nights),
-            vs_base=round(det / base, 2) if base > 0 and not few else None,
-            p_above_base=round(float(stats.poisson.sf(det - 1, base)), 4) if base > 0 and not few else None,
+            cougar=sum(c.cougar for c in cs),
+            cougar_per_100=_per_100(sum(c.cougar for c in cs), nights),
+            by_placement=by_place,
+            compared_nights=round(on_nights, 1),
+            base_per_100=_per_100(base, on_nights),
+            vs_base=round(on_det / base, 2) if base > 0 and not few else None,
+            p_above_base=round(float(stats.poisson.sf(on_det - 1, base)), 4) if base > 0 and not few else None,
             too_few_nights=few,
+            not_compared={p: v["cameras"] for p, v in by_place.items() if p != "on-feature"},
             deer_per_100=_per_100(sum(c.deer for c in cs), nights),
             elk_per_100=_per_100(sum(c.elk for c in cs), nights),
         )
@@ -314,25 +335,32 @@ def paired_test(
     cams: list[CamStat], treat: str, control: str, rng: np.random.Generator, cfg: Truth = TRUTH
 ) -> JSON | None:
     """Within-zone comparison of two arms: zones holding both, each zone's rate difference (per 100 nights),
-    the pooled rate ratio (0.5 added to each arm's count when either has none) and the permutation p-value."""
+    the pooled rate ratio (0.5 added to each arm's count when either has none) and the permutation p-value.
+    Two arms that don't themselves set the placement (model, human, control) are only like with like when both
+    cameras of a zone share one: zones placed differently, or with a placement not recorded, are counted and
+    the result carries a placement_warning (placement alone can make a 3x difference)."""
     zones: dict[str, tuple[list[CamStat], list[CamStat]]] = {}
     for c in cams:
         if c.zone and c.arm in (treat, control):
             t, k = zones.setdefault(c.zone, ([], []))
             (t if c.arm == treat else k).append(c)
     rows = []
+    differ = unknown = 0
     for z, (t, k) in sorted(zones.items()):
         nt, nk = sum(c.nights for c in t), sum(c.nights for c in k)
         if nt > 0 and nk > 0:
             dt_, dk = sum(c.cougar for c in t), sum(c.cougar for c in k)
             rows.append((z, dt_, nt, dk, nk))
+            places = {c.placement for c in t + k}
+            unknown += "unrecorded" in places
+            differ += "unrecorded" not in places and {c.placement for c in t} != {c.placement for c in k}
     if not rows:
         return None
     det_t, n_t = sum(r[1] for r in rows), sum(r[2] for r in rows)
     det_c, n_c = sum(r[3] for r in rows), sum(r[4] for r in rows)
     pad = 0.5 if min(det_t, det_c) == 0 else 0.0
     diffs = np.array([100 * (r[1] / r[2] - r[3] / r[4]) for r in rows])
-    return dict(
+    out: JSON = dict(
         zones=len(rows),
         treatment=treat,
         control=control,
@@ -343,6 +371,23 @@ def paired_test(
         zones_worse=int(np.sum(diffs < 0)),
         p_value=round(sign_flip_p(diffs, rng, cfg.n_permutations), 4),
     )
+    if {treat, control} & {"on-feature", "off-feature"}:
+        return out  # the arm is the placement: that difference is what the comparison tests
+    out.update(zones_placed_differently=differ, zones_placement_unrecorded=unknown)
+    if differ or unknown:
+        out["placement_warning"] = (
+            f"{differ + unknown} of {len(rows)} zone(s) don't compare like with like: "
+            + ", ".join(
+                x
+                for x in (
+                    f"{differ} with one camera on a trail or dirt road and the other off it" if differ else "",
+                    f"{unknown} with a camera whose trail_type isn't logged" if unknown else "",
+                )
+                if x
+            )
+            + ". On-trail cameras catch about 3x more lions, so placement, not the map, may explain the difference."
+        )
+    return out
 
 
 def camera_test(cams: list[CamStat], rng: np.random.Generator, cfg: Truth = TRUTH) -> JSON:
@@ -416,6 +461,8 @@ def _camera_section(st: ModelState, spots: AreaPins, records: list[Record], rng:
                 id=s.id,
                 arm=s.arm,
                 zone=s.zone,
+                trail_type=c.dep["trail_type"],
+                placement=s.placement,
                 camera_nights=round(s.nights, 1),
                 cougar=s.cougar,
                 deer=s.deer,
@@ -528,23 +575,47 @@ def _human_section(a: AreaPins) -> JSON | None:
     )
 
 
-def _summary(cam: JSON, tracks: JSON, transects: JSON, human: JSON | None) -> list[str]:
-    lines = [
-        f"{p['treatment']} vs {p['control']} cameras in {p['zones']} zone(s): rate ratio {p['rate_ratio']}, "
-        f"better in {p['zones_better']}, worse in {p['zones_worse']} (p = {p['p_value']})"
-        for p in cam["paired"]
-    ]
+def _camera_lines(cam: JSON) -> list[str]:
+    lines = []
+    for p in cam["paired"]:
+        lines.append(
+            f"{p['treatment']} vs {p['control']} cameras in {p['zones']} zone(s): rate ratio {p['rate_ratio']}, "
+            f"better in {p['zones_better']}, worse in {p['zones_worse']} (p = {p['p_value']})"
+        )
+        if "placement_warning" in p:
+            lines.append(f"  {p['placement_warning']}")
     for arm, v in cam["by_arm"].items():
-        if v["camera_nights"] < TRUTH.min_nights:
+        on = v["by_placement"].get("on-feature")
+        if on and v["compared_nights"] < TRUTH.min_nights:
             lines.append(
-                f"{arm} cameras: {v['cougar']} cougar detections in {v['camera_nights']:g} camera-nights "
-                f"(too few nights to compare with the base rate; {TRUTH.min_nights:g}+ needed)"
+                f"{arm} cameras on a trail or dirt road: {on['cougar']} cougar detections in "
+                f"{on['camera_nights']:g} camera-nights (too few nights to compare with the base rate; "
+                f"{TRUTH.min_nights:g}+ needed)"
             )
-        elif v["vs_base"] is not None:
+        elif on and v["vs_base"] is not None:
             lines.append(
-                f"{arm} cameras: {v['cougar']} cougar detections in {v['camera_nights']:g} camera-nights, "
-                f"{v['vs_base']}x a random on-trail camera (p = {v['p_above_base']})"
+                f"{arm} cameras on a trail or dirt road: {on['cougar']} cougar detections in "
+                f"{on['camera_nights']:g} camera-nights, {v['vs_base']}x a random on-trail camera "
+                f"(p = {v['p_above_base']})"
             )
+        off = v["by_placement"].get("off-feature")
+        if off:
+            lines.append(
+                f"{arm} cameras off trails: {off['cougar']} cougar detections in {off['camera_nights']:g} "
+                "camera-nights (not comparable with the on-trail base rate: on-trail cameras catch about 3x more)"
+            )
+        unk = v["by_placement"].get("unrecorded")
+        if unk:
+            lines.append(
+                f"{arm} cameras with no trail_type logged ({unk['cameras']}): {unk['cougar']} cougar detections in "
+                f"{unk['camera_nights']:g} camera-nights (placement unknown, so not compared with the on-trail "
+                "base rate: log their trail_type)"
+            )
+    return lines
+
+
+def _summary(cam: JSON, tracks: JSON, transects: JSON, human: JSON | None) -> list[str]:
+    lines = _camera_lines(cam)
     st = tracks["sign_test"]
     if st:
         lines.append(
@@ -599,8 +670,9 @@ def area_truth(
         snow_tracks=tracks,
         crossing_transects=transects,
         human_picks=human,
-        how_to_read="cameras: detections per 100 camera-nights vs random on-trail cameras in NE Washington "
-        "(Bassing 2023: summer 0.87, winter 0.37) and model vs control in the same zone; snow tracks: "
+        how_to_read="cameras: detections per 100 camera-nights; cameras on a trail or dirt road vs random on-trail "
+        "cameras in NE Washington (Bassing 2023: summer 0.87, winter 0.37), off-trail and unrecorded ones not "
+        "compared; model vs control in the same zone (placement_warning when they weren't placed alike); snow tracks: "
         "percentile vs the same track rotated and shifted 100-1,500 m (0.5 = chance); transects: AUC of the "
         "crossings vs the whole route (0.5 = chance). p-values are one-sided; small samples say little.",
     )

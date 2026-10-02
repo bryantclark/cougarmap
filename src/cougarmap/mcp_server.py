@@ -143,7 +143,8 @@ async def log_camera(
 ) -> JSON:
     """Record a camera put out: lat, lon, name, start date, arm (model = the tool's pick, human = a spot picked by hand,
     control = a nearby spot picked without the model, on-feature / off-feature, unpaired), zone (cameras compared with
-    each other share one), trail_type (paved | open-dirt | closed-road | hiking-trail | game-trail | none), height_m,
+    each other share one), trail_type (paved | open-dirt | closed-road | hiking-trail | game-trail | none: always ask
+    for it; the result has a warning while it is missing), height_m,
     facing_deg, lure. deployment=<id> updates an existing one instead (e.g. end date when it comes down; end="" reopens
     one that is still out). For an "alternate on the trail" camera: arm on-feature, same zone as the pick's camera (arm
     model or human)."""

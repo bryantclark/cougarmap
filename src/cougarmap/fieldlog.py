@@ -50,6 +50,11 @@ Arm = Literal["model", "human", "control", "on-feature", "off-feature", "unpaire
 ARMS: Final[tuple[str, ...]] = ("model", "human", "control", "on-feature", "off-feature", "unpaired")
 ARM_ALIASES: Final[dict[str, str]] = {"expert": "human"}  # the human arm's earlier name, still read
 TRAIL_TYPES: Final[tuple[str, ...]] = ("paved", "open-dirt", "closed-road", "hiking-trail", "game-trail", "none")
+# trail types where a camera watches a line lions walk, like the on-trail cameras of the base rate (truth.py);
+# "none" and "paved" are off one. On-trail cameras catch about 3x more lions (docs/experiments/09), so cameras are
+# compared like with like.
+ON_FEATURE_TRAILS: Final[tuple[str, ...]] = ("open-dirt", "closed-road", "hiking-trail", "game-trail")
+PLACEMENTS: Final[tuple[str, ...]] = ("on-feature", "off-feature", "unrecorded")
 SPECIES: Final[tuple[str, ...]] = ("cougar", "deer", "elk", "other")
 CONFIDENCE: Final[tuple[str, ...]] = ("certain", "probable", "possible")  # best first
 SURFACES: Final[tuple[str, ...]] = ("snow", "mud", "dust")
@@ -388,6 +393,15 @@ def deployments(records: list[Record]) -> dict[str, Deployment]:
 def ended(dep: Deployment, checks: list[Check]) -> str | None:
     """The date a camera came down: its end, else its first removal check; None while it is still out."""
     return dep["end"] or next((c["date"] for c in sorted(checks, key=lambda c: c["date"]) if c["removed"]), None)
+
+
+def placement_of(dep: Deployment) -> str:
+    """on-feature (the camera watches a trail, two-track or dirt road), off-feature, or unrecorded. The trail_type
+    decides; without one, an on-feature / off-feature arm says it."""
+    t = dep["trail_type"]
+    if t:
+        return "on-feature" if t in ON_FEATURE_TRAILS else "off-feature"
+    return dep["arm"] if dep["arm"] in ("on-feature", "off-feature") else "unrecorded"
 
 
 def new_deployment(
