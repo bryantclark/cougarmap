@@ -50,7 +50,7 @@ the user asks or the public spots are weak; they need landowner permission.
 | "find cougar hotspots near X", "where should I put cameras around X" | `find_hotspots(location="X")` |
 | "... within 10 miles of X" | `find_hotspots(location="X", radius_km=16)` |
 | "scan my property at LAT,LON", "include private land" | `find_hotspots(location="LAT,LON", radius_km=1.5)`, then report its `private_candidates` |
-| an area in their Google Earth file | `list_areas(kml)` then `find_hotspots(kml=..., area_name=...)` |
+| an area in their Google Earth file | `import_kml(path)` (lists its areas), then `find_hotspots(kml=..., area_name=...)` |
 | "use this KML" / gives a file path | `import_kml(path)` first, so their water/sign pins are used |
 | "why is spot #3 good?" | `explain_point(area, lat, lon)` |
 | "more spread out", "more spots", "within 2 miles" (same area) | `repick(area, ...)` (seconds, no re-download) |
@@ -62,17 +62,17 @@ the user asks or the public spots are weak; they need landowner permission.
 | "surveyed Ridge road, two crossings / nothing" | `log_transect(route, file or crossings)` |
 | "what have I logged?", "which cameras are out?" | `field_log()` |
 | "how is the map doing in AREA?" | `validate(area)` |
-| "my camera at LAT,LON got a lion" (a one-off, not a test) | `log_result(lat, lon, lion_seen=True, ...)` |
+| "my camera at LAT,LON got a lion" (a one-off, not a test) | `log_camera(lat, lon, name, start=..., end=...)` (arm unpaired), then `log_check(deployment, events=[...])` |
 | "open it" | `open_file(kmz_path)` (opens Google Earth) |
 
 `area` (explain_point, repick) is the analyzed area's name, as in the result's `summary.area`, or its folder in
 the results folder; saved analyses anywhere else are not read.
 
-**Long runs:** `find_hotspots`, `analyze_area` and `scout_region` start a background job. They wait up to
+**Long runs:** `find_hotspots` starts a background job. It waits up to
 `wait_seconds` (default 30, max 40) and return either the finished result or a `job_id` with `state: running`. In that
 case, call `job_status(job_id, wait_seconds=30)` again and keep checking until `state` is `done`. Tell the user
 it's working. First runs in a new region take 1-5 minutes (downloading elevation, canopy and map data); repeat
-runs take seconds to a minute. Never start the same job twice. If you lose track, use `list_jobs()`.
+runs take seconds to a minute. Never start the same job twice. If you lose track, `job_status()` with no id lists the recent jobs.
 
 Month: use the current month unless the user names a season or month. The wind changes with the season.
 

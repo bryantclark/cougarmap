@@ -317,6 +317,7 @@ def test_list_and_import_kml(tmp_path: Path) -> None:
     assert {pt["kind"] for pt in areas["points"]} == {"camera", "water"}
     r = api.import_kml(str(p))
     assert r["imported"] and Path(r["path"]).parent == PRIVATE_DIR and r["areas"]
+    assert api.import_kml(r["path"])["areas"] == r["areas"]  # importing it again just lists it
     assert api.import_kml(str(tmp_path / "missing.kml"))["imported"] is False
     (PRIVATE_DIR / "broken.kml").write_text("<kml")
     logged: list[str] = []
@@ -361,6 +362,8 @@ def test_find_hotspots_small_radius_analyzes_directly(monkeypatch: pytest.Monkey
     monkeypatch.setattr(api, "analyze_area", toys.recorder(calls, dict(summary={})))
     r = api.find_hotspots("47.9,-117.6", radius_km=2)
     assert r["how"] == "analyzed the whole area in detail" and calls[0][:2] == ("47.9,-117.6", 2)
+    api.find_hotspots(bbox=[1.0, 2.0, 3.0, 4.0], wind_from_deg=270)  # a bbox is analyzed directly too
+    assert calls[1][4] == [1.0, 2.0, 3.0, 4.0] and calls[1][7] == 270
     with pytest.raises(ValueError, match="give a location"):
         api.find_hotspots()
 

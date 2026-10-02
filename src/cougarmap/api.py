@@ -532,12 +532,16 @@ def find_hotspots(
     month: int | None = None,
     max_walk_miles: float = 1.0,
     blocks: int = 3,
+    bbox: list[float] | None = None,
+    wind_from_deg: float | None = None,
     log: Log = print,
 ) -> JSON:
     """The one-call answer to "find cougar hotspots near X": scout the region, analyze the best blocks in detail,
-    merge into one ranked list and one Google Earth file. Small radius (<= 4 km) or a KML area skips scouting."""
-    if kml or (location and radius_km is not None and radius_km <= 4):
-        r = analyze_area(location, radius_km, kml, area_name, None, month, max_walk_miles, log=log)
+    merge into one ranked list and one Google Earth file. A small radius (<= 4 km), a KML area or a bbox
+    [west, south, east, north] is analyzed directly, without scouting. wind_from_deg overrides the prevailing wind
+    (degrees it blows FROM)."""
+    if kml or bbox or (location and radius_km is not None and radius_km <= 4):
+        r = analyze_area(location, radius_km, kml, area_name, bbox, month, max_walk_miles, wind_from_deg, log=log)
         r["how"] = "analyzed the whole area in detail"
         return r
     if not location:
@@ -567,6 +571,7 @@ def find_hotspots(
                 bbox=b["bbox"],
                 month=month,
                 max_walk_miles=max_walk_miles,
+                wind_from_deg=wind_from_deg,
                 n_candidates=8,
                 area_name=f"{sc['location'].split(',')[0]} block {i}",
                 log=log,
@@ -639,11 +644,12 @@ def open_file(path: str) -> JSON:
 
 def import_kml(path: str) -> JSON:
     """Copy a Google Earth KML/KMZ into the private data folder so its areas and pins (water, sign, cameras)
-    are used automatically."""
+    are used automatically, and list them."""
     src = Path(path).expanduser()
     if not src.exists():
         return dict(imported=False, error=f"not found: {path}")
     PRIVATE_DIR.mkdir(parents=True, exist_ok=True)
     dst = PRIVATE_DIR / src.name
-    shutil.copy2(src, dst)
+    if not (dst.exists() and dst.samefile(src)):  # importing a file already there just lists it again
+        shutil.copy2(src, dst)
     return dict(imported=True, path=str(dst), **list_areas(str(dst)))

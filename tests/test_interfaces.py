@@ -25,7 +25,7 @@ from test_units import KML
 # MCP-only parameters that the api functions do not take
 _MCP_ONLY = {"wait_seconds"}
 # MCP tools that are not a same-named api function
-_NOT_API = {"job_status", "list_jobs", "playbook"}
+_NOT_API = {"job_status", "playbook"}
 
 
 def _tools() -> dict[str, dict[str, Any]]:
@@ -37,20 +37,15 @@ def test_mcp_tool_names() -> None:
     assert set(_tools()) == {
         "find_hotspots",
         "job_status",
-        "list_jobs",
-        "analyze_area",
-        "scout_region",
         "repick",
         "explain_point",
         "wind_summary",
-        "log_result",
         "log_camera",
         "log_check",
         "log_track",
         "log_transect",
         "field_log",
         "validate",
-        "list_areas",
         "import_kml",
         "open_file",
         "playbook",
@@ -100,18 +95,16 @@ def test_mcp_tools_answer_in_json(analyzed: dict[str, Any], monkeypatch: pytest.
     c = analyzed["candidates"][0]
     e = _call("explain_point", area=area, lat=c["lat"], lon=c["lon"])
     assert e["best_nearby"]["reasons"]
-    assert "areas" in _call("list_areas", kml=str(_kml_file(analyzed)))
-    assert _call("log_result", lat=1.0, lon=2.0, lion_seen=False)["saved"]
+    imported = _call("import_kml", path=str(_kml_file(analyzed)))
+    assert imported["imported"] and imported["areas"]
+    assert _call("import_kml", path=imported["path"])["areas"] == imported["areas"]  # again: just lists it
     cam = _call("log_camera", lat=1.0, lon=2.0, name="M1", arm="model", zone="z1", start="2026-10-01")
     assert cam["deployment"]["id"] == "M1"
     ev = [dict(datetime="2026-10-03T05:00", species="cougar", count=1)]
     assert _call("log_check", deployment="M1", date="2026-10-11", events=ev)["camera_nights"] == 10
     assert _call("log_track", points=[[1.0, 2.0], [1.001, 2.0]], date="2026-12-01")["km"] > 0.1
     assert _call("log_transect", route="R1", line=[[1.0, 2.0], [1.01, 2.0]], date="2026-12-01")["crossings"] == 0
-    assert [c["id"] for c in _call("field_log")["cameras"]] == [
-        "obs-" + api.read_observations()[0]["logged"][:10],
-        "M1",
-    ]
+    assert [c["id"] for c in _call("field_log")["cameras"]] == ["M1"]
     assert _call("validate", area=area)["cameras"]["cameras"] == []  # all logged far outside the area
     OBSERVATIONS_FILE.unlink()
     assert _call("open_file", path="/no/such/file")["opened"] is False
@@ -127,10 +120,11 @@ def test_mcp_tools_answer_in_json(analyzed: dict[str, Any], monkeypatch: pytest.
     r = _call("find_hotspots", location="Testville", wait_seconds=500)
     assert r == dict(job_id="job-1", state="running", wait=mcp_server.MAX_WAIT)
     assert started[0] == ("hotspots", dict(location="Testville", max_walk_miles=1.0, blocks=3))
-    _call("analyze_area", bbox=[1.0, 2.0, 3.0, 4.0])
-    _call("scout_region", location="Testville")
-    assert [k for k, _ in started] == ["hotspots", "analyze", "scout"]
+    _call("find_hotspots", bbox=[1.0, 2.0, 3.0, 4.0], wind_from_deg=270)
+    assert started[1] == ("hotspots", dict(bbox=[1.0, 2.0, 3.0, 4.0], max_walk_miles=1.0, wind_from_deg=270, blocks=3))
     assert _call("job_status", job_id="job-1")["state"] == "running"
+    monkeypatch.setattr(jobs, "list_jobs", lambda limit=10: [dict(job_id="job-1", state="running")])
+    assert _call("job_status") == dict(jobs=[dict(job_id="job-1", state="running")])
 
 
 def _kml_file(analyzed: dict[str, Any]) -> Path:

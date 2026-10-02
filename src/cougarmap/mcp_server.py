@@ -50,66 +50,22 @@ async def find_hotspots(
     radius_km: float | None = None,
     kml: str | None = None,
     area_name: str | None = None,
-    month: int | None = None,
-    max_walk_miles: float = 1.0,
-    blocks: int = 3,
-    wait_seconds: float = 30,
-) -> JSON:
-    """Find mountain lion hotspots and trail-camera spots. Use this for "find cougar hotspots near X".
-    location: place name ("Missoula, MT") or "lat,lon". radius_km: search radius (default 25; <= 4 analyzes that
-    circle directly, e.g. a property). Or kml + area_name for an area drawn in Google Earth.
-    Spots are on public land; private-land spots (e.g. the user's own property) come back separately
-    (private_candidates) and as hidden KMZ layers. month 1-12 (default: now).
-    Runs in the background: if the result says state=running, call job_status(job_id) until done."""
-    return await _job(
-        "hotspots",
-        dict(
-            location=location,
-            radius_km=radius_km,
-            kml=kml,
-            area_name=area_name,
-            month=month,
-            max_walk_miles=max_walk_miles,
-            blocks=blocks,
-        ),
-        wait_seconds,
-    )
-
-
-@server.tool(structured_output=False)
-async def job_status(job_id: str, wait_seconds: float = 30) -> JSON:
-    """Check a background job (from find_hotspots / analyze_area / scout_region). Waits up to wait_seconds
-    (max 40) for it to finish. state: queued | running | done (result included) | failed (error included)."""
-    return await _bg(jobs.status, job_id, min(max(wait_seconds, 0), MAX_WAIT))
-
-
-@server.tool()
-async def list_jobs(limit: int = 10) -> list[JSON]:
-    """Recent background jobs, newest first (use if you lost a job_id)."""
-    return jobs.list_jobs(limit)
-
-
-# ---- finer-grained operations ----------------------------------------------------------------------------
-
-
-@server.tool(structured_output=False)
-async def analyze_area(
-    location: str | None = None,
-    radius_km: float | None = None,
-    kml: str | None = None,
-    area_name: str | None = None,
     bbox: list[float] | None = None,
     month: int | None = None,
     max_walk_miles: float = 1.0,
     wind_from_deg: float | None = None,
-    n_candidates: int = 15,
+    blocks: int = 3,
     wait_seconds: float = 30,
 ) -> JSON:
-    """Detailed analysis of ONE area (location+radius_km, kml+area_name, or bbox [west,south,east,north]) ->
-    ranked camera spots with reasons + Google Earth KMZ. wind_from_deg overrides the prevailing wind (degrees
-    it blows FROM). Background job: poll job_status if state=running."""
+    """Find mountain lion hotspots and trail-camera spots: ranked spots with reasons and a Google Earth KMZ.
+    Where: location (place name like "Missoula, MT", or "lat,lon") with radius_km (default 25: scouts the region
+    and analyzes the best `blocks`; <= 4 analyzes that circle directly, e.g. a property), or kml + area_name (an
+    area drawn in Google Earth), or bbox [west, south, east, north]. Spots are on public land within
+    max_walk_miles of a road open that month; private-land spots come back separately (private_candidates).
+    month 1-12 (default: now). wind_from_deg overrides the modeled prevailing wind (degrees it blows FROM).
+    Runs in the background: if the result says state=running, call job_status(job_id) until done."""
     return await _job(
-        "analyze",
+        "hotspots",
         dict(
             location=location,
             radius_km=radius_km,
@@ -119,34 +75,23 @@ async def analyze_area(
             month=month,
             max_walk_miles=max_walk_miles,
             wind_from_deg=wind_from_deg,
-            n_candidates=n_candidates,
+            blocks=blocks,
         ),
         wait_seconds,
     )
 
 
 @server.tool(structured_output=False)
-async def scout_region(
-    location: str,
-    radius_km: float = 40.0,
-    month: int | None = None,
-    max_walk_miles: float = 1.0,
-    top: int = 8,
-    wait_seconds: float = 30,
-) -> JSON:
-    """Coarse screen of a region -> ranked ~3 km blocks worth a detailed look (find_hotspots does this for you).
-    Background job: poll job_status if state=running."""
-    return await _job(
-        "scout",
-        dict(
-            location=location,
-            radius_km=radius_km,
-            month=month,
-            max_walk_miles=max_walk_miles,
-            top=top,
-        ),
-        wait_seconds,
-    )
+async def job_status(job_id: str | None = None, wait_seconds: float = 30) -> JSON:
+    """Check a background job from find_hotspots. Waits up to wait_seconds (max 40) for it to finish. state:
+    queued | running | done (result included) | failed (error included). Without job_id: the recent jobs, newest
+    first (if you lost the id)."""
+    if job_id is None:
+        return dict(jobs=jobs.list_jobs(10))
+    return await _bg(jobs.status, job_id, min(max(wait_seconds, 0), MAX_WAIT))
+
+
+# ---- follow-ups on an analyzed area ----------------------------------------------------------------------------
 
 
 @server.tool(structured_output=False)
@@ -285,32 +230,10 @@ async def field_log() -> JSON:
 
 
 @server.tool(structured_output=False)
-async def log_result(
-    lat: float,
-    lon: float,
-    lion_seen: bool,
-    name: str | None = None,
-    start: str | None = None,
-    end: str | None = None,
-    detections: int | None = None,
-    times: list[str] | None = None,
-    notes: str | None = None,
-) -> JSON:
-    """Quick record of what a camera caught (including nothing), when it isn't part of a designed test: saved as
-    an unpaired camera, start through end (the last night covered). Prefer log_camera + log_check for cameras the
-    user is still running."""
-    return api.log_result(lat, lon, lion_seen, name, start, end, detections, times, notes)
-
-
-@server.tool(structured_output=False)
-async def list_areas(kml: str) -> JSON:
-    """Named areas and pins (cameras, water, sign) in a Google Earth KML/KMZ."""
-    return api.list_areas(kml)
-
-
-@server.tool(structured_output=False)
 async def import_kml(path: str) -> JSON:
-    """Copy the user's Google Earth KML/KMZ into CougarMap's private folder so its water/sign pins are used."""
+    """Copy the user's Google Earth KML/KMZ into CougarMap's private folder, so its water and sign pins are used,
+    and list its named areas (for find_hotspots(kml=..., area_name=...)) and pins. Importing the same file again
+    just lists them."""
     return api.import_kml(path)
 
 
