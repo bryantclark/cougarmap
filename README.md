@@ -23,8 +23,7 @@ On Windows, install uv with `powershell -c "irm https://astral.sh/uv/install.ps1
 `uv tool install` line. No terminal? Download `CougarMap-installer.zip` from the
 [latest release](https://github.com/bryantclark/cougarmap/releases/latest) and double-click the installer in it.
 
-**2. Find camera spots around a coordinate.** Give latitude and longitude the way Google Maps copies them. West
-longitudes are negative. This analyzes everything within 3 km of the point in detail:
+**2. Find camera spots around a coordinate.** Give latitude and longitude the way Google Maps copies them. Optionally use the --radius-km flag to set a radius size. 
 
 ```bash
 cougarmap analyze --near "47.3712, -116.1029" --radius-km 3
