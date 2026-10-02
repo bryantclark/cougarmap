@@ -279,3 +279,98 @@ def test_banded_binary_opening_matches_scipy() -> None:
     for k in (1, 3):
         ref = ndimage.binary_opening(m, structure=np.ones((2 * k + 1, 2 * k + 1), bool))
         assert np.array_equal(T.binary_opening(m, k), ref)
+
+
+def _heapq_tree(cost: np.ndarray, starts: np.ndarray, res: float, cutoff: float) -> tuple[Any, Any, Any]:
+    """The least-cost tree with Python's heapq on (cost, cell) tuples: the reference _least_cost_tree replaces."""
+    import heapq
+
+    H, W = cost.shape
+    cf = cost.ravel()
+    D = np.full(H * W, np.inf)
+    pred = np.full(H * W, -1, np.int64)
+    done = np.zeros(H * W, bool)
+    order = []
+    heap = [(0.0, int(s)) for s in starts]
+    for s in starts:
+        D[s] = 0.0
+    heapq.heapify(heap)
+    while heap:
+        d, i = heapq.heappop(heap)
+        if done[i]:
+            continue
+        done[i] = True
+        order.append(i)
+        r, c = divmod(i, W)
+        for k in range(8):
+            rr, cc = r + int(T.DR[k]), c + int(T.DC[k])
+            j = rr * W + cc
+            if 0 <= rr < H and 0 <= cc < W and not done[j]:
+                nd = d + T.DL[k] * res * 0.5 * (cf[i] + cf[j])
+                if nd < D[j] and nd <= cutoff:
+                    D[j], pred[j] = nd, i
+                    heapq.heappush(heap, (nd, j))
+    return D.reshape(H, W), pred, np.array(order, np.int64)
+
+
+@pytest.mark.parametrize("flat", [False, True])  # flat: equal costs everywhere, so ties settle by cell index
+def test_least_cost_tree_matches_heapq(flat: bool) -> None:
+    rng = np.random.default_rng(3)
+    cost = np.ones((60, 45)) if flat else rng.random((60, 45)) * 5 + 0.5
+    starts = np.flatnonzero(rng.random(cost.size) < 0.01).astype(np.int64)
+    ref = _heapq_tree(cost, starts, 3.0, 25.0)
+    got = T._least_cost_tree(cost, starts, 3.0, 25.0)
+    assert np.isinf(ref[0]).any() and np.isfinite(ref[0]).any()  # the cutoff stops some routes
+    for a, b in zip(ref, got, strict=True):
+        assert np.array_equal(a, b)
+    # the distances are the graph's shortest paths
+    from scipy.sparse import csr_matrix
+    from scipy.sparse.csgraph import dijkstra
+
+    H, W = cost.shape
+    idx = np.arange(H * W, dtype=np.int64).reshape(H, W)
+    cf: Floats = cost.ravel()
+    rows: list[np.ndarray] = []
+    cols: list[np.ndarray] = []
+    w: list[np.ndarray] = []
+    for dr, dc, dl in ((0, 1, 1.0), (1, 0, 1.0), (1, 1, math.sqrt(2)), (1, -1, math.sqrt(2))):
+        a = idx[: H - dr, max(0, -dc) : W - max(0, dc)].ravel()
+        b = idx[dr:, max(0, dc) : W - max(0, -dc) or None].ravel()
+        e = dl * 3.0 * 0.5 * (cf[a] + cf[b])
+        rows += [a, b]
+        cols += [b, a]
+        w += [e, e]
+    g = csr_matrix((np.concatenate(w), (np.concatenate(rows), np.concatenate(cols))), shape=(H * W, H * W))
+    d = np.asarray(dijkstra(g, indices=starts)).min(axis=0)
+    ok = np.isfinite(got[0].ravel())
+    assert np.allclose(got[0].ravel()[ok], d[ok]) and (d[~ok] > 25).all()
+
+
+def test_tree_flow_matches_walking_each_route() -> None:
+    rng = np.random.default_rng(4)
+    cost = rng.random((30, 40)) + 0.5
+    dest = np.zeros(cost.shape, bool)
+    dest[5, 5] = dest[20, 30] = True
+    weight = (rng.random(cost.shape) < 0.2).astype(float)
+    covered = rng.random(cost.shape) < 0.6
+    t = T.cost_tree(cost, dest, weight, covered, 2.0, 1e9, 9.0)
+    _, pred, _ = T._least_cost_tree(cost, np.flatnonzero(dest).astype(np.int64), 2.0, 1e9)
+    W = cost.shape[1]
+    flow = weight.ravel().copy() * 0
+    for i in range(cost.size):  # walk every cell's route to its destination
+        path = [i]
+        while pred[path[-1]] >= 0:
+            path.append(int(pred[path[-1]]))
+        for j in path:
+            flow[j] += weight.flat[i]
+        assert t.root.flat[i] == path[-1]
+        steps = [(a, b) for a, b in zip(path[::-1][:-1], path[::-1][1:], strict=True)]  # root outward
+        length = uncovered = 0.0
+        for a, b in steps:
+            step = 2.0 * (math.sqrt(2) if (a // W != b // W and a % W != b % W) else 1.0)
+            length += step
+            if not covered.flat[b] and length <= 9.0:
+                uncovered += step
+        share = 1 - uncovered / min(length, 9.0) if length > 0 else 1.0
+        assert t.covered_share.flat[i] == pytest.approx(share)
+    assert np.allclose(t.flow.ravel(), flow)

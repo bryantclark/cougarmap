@@ -78,6 +78,7 @@ def blank_layers(fine: Grid, mid: Grid) -> Layers:
         winter_range_mid=np.zeros(mid.shape, bool),
         trail_kind=np.zeros(fine.shape, np.int8),
         pinch_water_kind=np.zeros(fine.shape, np.int8),
+        travel_approach_to=np.zeros(fine.shape, np.int8),
         worn_lines=[],
         worn_unmapped=np.zeros(fine.shape, bool),
     )

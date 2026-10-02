@@ -165,6 +165,7 @@ def run(aoi: AOI, opts: Options | None = None, log: Log = print, out_dir: Path |
         factors.compute_access,
         factors.compute_traffic,
         factors.compute_trails,
+        factors.compute_approach,  # after the travel line, water, openings, wind, cliffs and trails it reads
         factors.compute_worn_trails,  # after compute_terrain (the fine DEM's channels)
         factors.compute_houses,
         factors.compute_recreation,
@@ -467,6 +468,7 @@ def reasons(st: ModelState, c: Cell) -> list[str]:
 EDGE_DENSITY_REASON = 0.10
 WATER_DENSITY_REASON = 0.2
 TRAVEL_REASON = 0.6
+APPROACH_REASON = 0.3  # a destination approach this strong, and making the travel line, is named (~1-3% of an area)
 # The per-factor reason thresholds: a part of a factor "counts" at these strengths.
 CONVERGENCE_REASON = 0.25
 DRAINAGE_REASON = 0.5
@@ -580,14 +582,7 @@ def _edge_reasons(st: ModelState, c: Cell) -> list[str]:
                 )
             else:
                 out.append(f"in timber cover overlooking a {size}opening - can watch prey without being seen")
-    # the terrain travel line supersedes the older valley-bottom / ridgeline tie-breakers in the reasons
-    if A["travel"][row, col] >= TRAVEL_REASON:
-        out.append(_travel_reason(st, c))
-    else:
-        if A["edge_valley"][row, col] > VALLEY_REASON:
-            out.append("valley bottom")
-        if A["edge_ridge"][row, col] > RIDGE_REASON:
-            out.append("ridgeline")
+    out += _travel_reasons(st, c)
     if A["edge_water"][row, col] > WATER_EDGE_REASON:
         out.append("water edge")
     if A["closed_track_mid"][c.mr, c.mc]:
@@ -595,6 +590,30 @@ def _edge_reasons(st: ModelState, c: Cell) -> list[str]:
     elif A["edge_route"][row, col] > ROUTE_REASON:
         out.append("on a trail/two-track through timber (travel route)")
     return out
+
+
+def _travel_reasons(st: ModelState, c: Cell) -> list[str]:
+    """The terrain travel line (it supersedes the older valley-bottom / ridgeline tie-breakers); where a destination
+    approach is what makes the travel line, the reason names it instead."""
+    A = st.layers
+    row, col = c.row, c.col
+    approach = float(A["travel_approach"][row, col])
+    if approach >= APPROACH_REASON and approach >= A["travel"][row, col]:
+        return [_approach_reason(A, c)]
+    if A["travel"][row, col] >= TRAVEL_REASON:
+        return [_travel_reason(st, c)]
+    out = []
+    if A["edge_valley"][row, col] > VALLEY_REASON:
+        out.append("valley bottom")
+    if A["edge_ridge"][row, col] > RIDGE_REASON:
+        out.append("ridgeline")
+    return out
+
+
+def _approach_reason(A: Layers, c: Cell) -> str:
+    to = factors.APPROACH_TO[int(A["travel_approach_to"][c.row, c.col]) - 1]
+    why = "the trail deer and elk take out to feed" if to == "meadow" else "the trail animals take to drink"
+    return f"on the covered approach from timber to the {to} - {why}, and the way a hunting lion comes in"
 
 
 def _travel_reason(st: ModelState, c: Cell) -> str:

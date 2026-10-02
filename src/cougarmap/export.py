@@ -379,7 +379,9 @@ def write_outputs(result: Result, out_dir: Path, log: Log = print, state: bool =
         add("Factor: limited water", A["water"], ramp=_BLUE)
         add("Hunting edge (timber edge and the open beside it; downwind ends brightest)", A["edge_meadow"])
         if "travel" not in st.unmodeled:
-            add("Travel lines (drainage bottoms; ridge spines at crossings)", A["travel"])
+            add(
+                "Travel lines (drainage bottoms, ridge crossings, covered approaches to water and meadows)", A["travel"]
+            )
         if "context" not in st.unmodeled:
             add("Lion habitat around (edge + water)", A["context"] / max(float(A["context"].max()), 1e-6))
         if float(A["season"].min()) < 1:  # winter months only

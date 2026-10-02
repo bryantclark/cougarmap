@@ -77,7 +77,7 @@ def test_outputs_kmz_geojson_summary_state(analyzed: dict[str, Any]) -> None:
         names = [o.findtext("k:name", namespaces=ns) for o in overlays]
         assert (
             "Lion score on private land (top 30%)" in names
-            and "Travel lines (drainage bottoms; ridge spines at crossings)" in names
+            and "Travel lines (drainage bottoms, ridge crossings, covered approaches to water and meadows)" in names
         )
         from io import BytesIO
 
@@ -95,6 +95,9 @@ def test_outputs_kmz_geojson_summary_state(analyzed: dict[str, Any]) -> None:
     st = load_state(d / "state.pkl")
     assert statefile.load(d / "state.pkl")["slim"]["version"] == STATE_VERSION
     assert set(st.layers) == set(SAVED) and not st.unmodeled
+    A = st.layers  # the destination approaches are part of the travel line, each tagged with where it leads
+    ap, to = A["travel_approach"], A["travel_approach_to"]
+    assert ap.max() > 0.3 and (A["travel"] >= ap).all() and ((to > 0) == (ap > 0)).all() and to.max() <= 5
 
 
 def test_summary_runtime_covers_the_whole_run(analyzed: dict[str, Any]) -> None:
@@ -317,7 +320,10 @@ def test_validate_and_field_log(analyzed: dict[str, Any], tmp_path: Path) -> Non
     assert (split["near_road"] is None) == (not track["found_near_road"])
     tx = v["crossing_transects"]
     assert tx["surveys"] == 3 and tx["crossings"] == 2 and tx["routes"] == ["Route 1"] and 0 <= tx["auc"] <= 1
-    assert v["human_picks"]["picks"] == 1 and v["human_picks"]["by_pick"]["Cam01"] <= 0.5
+    # the pick on the best public spot outranks random points
+    assert (
+        v["human_picks"]["picks"] == 1 and v["human_picks"]["by_pick"]["Cam01"] < v["human_picks"]["random_median_rank"]
+    )
     assert any("model vs control" in line for line in v["summary"])
     assert any("no trail_type logged (1)" in line for line in v["summary"])  # Cam01: placement unknown
     assert api.validate(analyzed["dir"].name)["human_picks"] is None  # no camera pins in the private folder

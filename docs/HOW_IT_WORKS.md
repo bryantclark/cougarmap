@@ -2,7 +2,7 @@
 
 CougarMap encodes our field method for placing lion cameras: four factors, stacked, with the most weight on wind
 and edges. On top of that it adds habitat context, natural travel lines, a winter module and penalties for
-people. This page describes the current model (v3.1). [VALIDATION.md](VALIDATION.md) covers how it is tested, and
+people. This page describes the current model (v3.4). [VALIDATION.md](VALIDATION.md) covers how it is tested, and
 [experiments/](experiments/) covers how it got here.
 
 ```
@@ -61,6 +61,17 @@ The four factors, weighted wind 0.35, edges 0.30, pinch points 0.20 and water 0.
   count half, except where lions cross them: within 150 m of a saddle, within 100 m of a junction of ridges,
   and from November to March above big south- and southeast-facing slopes. Lions cross ridges at saddles, and
   use ridgelines less for travel than canyon bottoms (Dickson & Beier 2007).
+- **Destination approaches** (part of the travel line: travel = max(line, approach)). Animals bed in timber and
+  travel to water to drink and to meadows to feed, and a hunting lion takes the covered way in. Least-cost routes
+  run from bedding cover (70% canopy of 4 m or more within 30 m) 150-300 m from a destination to the nearest
+  limited water or opening. Each metre costs more in the open (x up to 3 by the canopy share within 8 m), on
+  steep ground (x up to 4 from 20 to 40 degrees) and on cliffs (x10), less on a travel line or a mapped trail
+  (x0.7), and a lake that is not a destination is all but closed (50). Where routes converge (up to ten times an
+  even flow across a 150 m front), run under cover over their last 60 m and sit near cover, the corridor scores,
+  more downwind of the destination at dawn and dusk (x0.5-1), in full up to 75 m from it and fading out by 150 m
+  (`factors.destination_approach`, `config.Approach`). A spot where the approach makes the travel line says so
+  ("on the covered approach from timber to the pond"). Chosen on the owner's method, with every value fixed
+  before it was measured ([experiments/14](experiments/14-water-approaches.md)).
 
 ## Habitat and season
 

@@ -117,6 +117,47 @@ WATER = WaterRules()
 
 
 @dataclass(frozen=True)
+class Approach:
+    """Destination approaches (factors.destination_approach), a part of the travel line: animals bed in timber and
+    travel to water to drink and to meadows to feed, and a hunting lion takes the covered way in. Least-cost routes
+    run from bedding cover to each destination (limited water, openings); where many of them converge on one
+    corridor, under cover, near the destination and downwind of it, the travel line counts that corridor (travel =
+    max(travel line, approach)). Every value was fixed before it was measured (docs/experiments/14)."""
+
+    # cost per metre: x(1 + open_cost x (1 - cover within cover_near_m)) x(1 + slope_cost x ramp(slope_deg))
+    # x(1 - line_discount x travel line or mapped trail) x cliff_cost on cliffs; lake_cost on a lake that is not a
+    # destination. Cover = canopy at least cover_m tall (median over ~5 m)
+    cover_m: float = 4.0
+    cover_median_m: float = 5.0
+    cover_near_m: float = 8.0
+    open_cost: float = 2.0
+    slope_deg: tuple[float, float] = (20.0, 40.0)
+    slope_cost: float = 3.0
+    line_discount: float = 0.3
+    cliff_cost: float = 10.0
+    lake_cost: float = 50.0
+    max_cost_m: float = 2000.0  # routes reach this far (cost-weighted metres) from a destination
+    # where routes start: bedding cover (at least bed_frac cover within bed_m) start_m from a destination
+    bed_m: float = 30.0
+    bed_frac: float = 0.7
+    start_m: tuple[float, float] = (150.0, 300.0)
+    # convergence: log10 of the flow through a cell over an even flow across a front_m wide band, clipped 0-1
+    # (1 = ten times the even flow), spread over the 3x3 cells around it
+    front_m: float = 150.0
+    # under cover: the covered share (cells within covered_m of cover) of the route's last last_m metres, times
+    # how close the cell itself is to cover (1 up to near_cover_m, 0 at far_cover_m), square-rooted
+    covered_m: float = 5.0
+    last_m: float = 60.0
+    near_cover_m: float = 10.0
+    far_cover_m: float = 25.0
+    # credit near the destination: full to taper_m[0], none past taper_m[1]
+    taper_m: tuple[float, float] = (75.0, 150.0)
+
+
+APPROACH = Approach()
+
+
+@dataclass(frozen=True)
 class WaterPinch:
     """Ponds and lakes as barriers animals walk around (factors.water_pinch, the pinch_water component). Two
     parts, max-combined: the squeeze, land beside a shore with another barrier (a cliff, ground too steep to
