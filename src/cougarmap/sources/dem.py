@@ -123,7 +123,7 @@ def fetch_dem(grid: Grid, allow_lidar: bool = True) -> tuple[Floats, DemInfo]:
             for u in _seamless_tiles(lb, "13" if grid.res < 25 else "1"):
                 try:
                     grid.read_raster("/vsicurl/" + u, dst=dem)
-                    used.append(u.rsplit("/", 1)[-1])
+                    used.append(u.replace("\\", "/").rsplit("/", 1)[-1])
                 except Exception:  # tiles that don't exist (ocean, outside the US) are skipped
                     continue
         return _fill_holes(dem), DemInfo(sources=used, lidar_fraction=round(lidar_frac, 3))

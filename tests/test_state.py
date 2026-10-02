@@ -8,6 +8,7 @@ import dataclasses
 import gzip
 import os
 import pickle
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -91,6 +92,7 @@ def test_a_failed_update_leaves_the_file_intact(tmp_path: Path) -> None:
     assert not list(tmp_path.glob(".*tmp"))
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="Windows can't replace an open file (see the next test)")
 def test_update_swaps_in_a_new_file(tmp_path: Path) -> None:
     """A reader that opened the file before an update (another process loading it during a re-pick) still reads
     a whole, valid file: the update never rewrites the file in place."""
@@ -101,6 +103,29 @@ def test_update_swaps_in_a_new_file(tmp_path: Path) -> None:
         old, _ = statefile._read_index(f)
     assert old["slim"]["opts"].month == 10 and statefile.load(p)["slim"]["opts"].month == 3
     assert not list(tmp_path.glob(".*tmp"))
+
+
+def test_a_refused_swap_waits_for_readers(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Windows refuses to replace a file someone has open: the swap retries until they let go, and gives up with
+    the error (leaving the old file) if they never do."""
+    p = tmp_path / "state.pkl"
+    statefile.save(_tree(), p)
+    real, refusals = Path.replace, [2]
+
+    def busy(self: Path, target: Any) -> Path:
+        if refusals[0]:
+            refusals[0] -= 1
+            raise PermissionError(13, "in use")
+        return real(self, target)
+
+    monkeypatch.setattr(Path, "replace", busy)
+    statefile.update(p, lambda tree: dict(tree, slim=dict(tree["slim"], opts=Options(month=3))))
+    assert statefile.load(p)["slim"]["opts"].month == 3 and refusals == [0]
+    refusals[0] = 10**6
+    monkeypatch.setattr(statefile, "SWAP_WAIT_S", 0.1)
+    with pytest.raises(PermissionError):
+        statefile.update(p, lambda tree: dict(tree, slim=dict(tree["slim"], opts=Options(month=4))))
+    assert statefile.load(p)["slim"]["opts"].month == 3 and not list(tmp_path.glob(".*tmp"))
 
 
 def test_truncated_file_is_an_error(tmp_path: Path) -> None:

@@ -12,6 +12,7 @@ concurrency:
 permissions:
   contents: read
 
+# Actions are pinned to commit SHAs (the tag in the comment); Dependabot keeps them current.
 jobs:
   check:
     # The same gate as local commits: ruff format --check, ruff check, mypy strict, pytest + coverage floor.
@@ -19,9 +20,57 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v10.2.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           enable-cache: true
       - run: uv sync --locked
       - run: ./scripts/check.sh
+
+  test:
+    # Where people actually run it: macOS and Windows, on the oldest supported Python (the installer's 3.12).
+    name: test (${{ matrix.os }}, py${{ matrix.python }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+        python: ["3.12"]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          enable-cache: true
+          python-version: ${{ matrix.python }}
+      - run: uv sync --locked
+      - run: uv run pytest -q
+
+  package:
+    # Build the wheel and use it the way the installer does, outside the checkout: the bundled playbook and
+    # server instructions must ship, and the commands must start.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+      - run: uv build
+      - name: Wheel contents
+        run: |
+          unzip -l dist/cougarmap-*.whl | tee /tmp/wheel.txt
+          for f in cougarmap/PLAYBOOK.md cougarmap/INSTRUCTIONS.md cougarmap/sources/dem.py; do
+            grep -q " $f\$" /tmp/wheel.txt || { echo "missing from the wheel: $f"; exit 1; }
+          done
+      - name: Install the wheel as a tool and run it
+        working-directory: ${{ runner.temp }}
+        env:
+          HOME: ${{ runner.temp }}/home
+        run: |
+          mkdir -p "$HOME"
+          uv tool install --python 3.12 "$GITHUB_WORKSPACE"/dist/cougarmap-*.whl
+          export PATH="$(uv tool dir --bin):$PATH"
+          cougarmap --help
+          cougarmap playbook | grep -q "CougarMap playbook"
+          cougarmap setup --dry-run --all
+          "$(uv tool dir)/cougarmap/bin/python" -c \
+            "import cougarmap.mcp_server as m; assert len(m.INSTRUCTIONS) < 2048, len(m.INSTRUCTIONS)"

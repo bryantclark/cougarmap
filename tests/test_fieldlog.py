@@ -138,6 +138,7 @@ def test_camera_nights_downtime_and_independent_detections() -> None:
     assert fl.independent([None, None, "2026-01-01T00:00", "2026-01-01T00:40"], 30) == 4
 
 
+@pytest.mark.skipif(not hasattr(time, "tzset"), reason="needs time.tzset to set the local zone (not on Windows)")
 def test_event_times_with_and_without_a_zone(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("TZ", "America/Los_Angeles")
     time.tzset()
