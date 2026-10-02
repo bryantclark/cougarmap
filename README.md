@@ -16,11 +16,12 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
 ```bash
-uv tool install --python 3.12 git+https://github.com/bryantclark/cougarmap
+uv tool install --python 3.12 cougarmap
 ```
 
 On Windows, install uv with `powershell -c "irm https://astral.sh/uv/install.ps1 | iex"` and then run the same
-`uv tool install` line.
+`uv tool install` line. No terminal? Download `CougarMap-installer.zip` from the
+[latest release](https://github.com/bryantclark/cougarmap/releases/latest) and double-click the installer in it.
 
 **2. Find camera spots near a coordinate.** Give latitude and longitude the way Google Maps copies them. West
 longitudes are negative.
@@ -76,7 +77,7 @@ CougarMap stacks four things lions use. The more of them at one spot, the better
 
 It also favors natural travel lines such as drainage bottoms and ridge crossings. In winter it adds low,
 sun-facing ground with shallow snow, where deer spend the winter. It avoids paved roads, towns, trailheads and
-campgrounds. [docs/HOW_IT_WORKS.md](docs/HOW_IT_WORKS.md) has the details.
+campgrounds. [docs/HOW_IT_WORKS.md](https://github.com/bryantclark/cougarmap/blob/main/docs/HOW_IT_WORKS.md) has the details.
 
 **What it can't see:** the wind is modeled from weather history, not measured on the ground. Prey isn't modeled.
 Small springs and seeps are often missing from maps. If you know of water the maps miss, pin it in Google Earth
@@ -87,7 +88,7 @@ restrict trail cameras, so check with whoever manages the land.
 
 The map is only as good as what it catches. CougarMap keeps a field log of cameras, camera checks, snow tracks
 and road surveys. `cougarmap validate <area>` tests the map against what you logged, with honest sample sizes.
-[docs/FIELD_PROTOCOL.md](docs/FIELD_PROTOCOL.md) explains what to record in plain language.
+[docs/FIELD_PROTOCOL.md](https://github.com/bryantclark/cougarmap/blob/main/docs/FIELD_PROTOCOL.md) explains what to record in plain language.
 
 ## Privacy
 
@@ -97,13 +98,15 @@ OpenStreetMap, weather and snow data). Your Google Earth files, camera locations
 
 ## More
 
-- [docs/USAGE.md](docs/USAGE.md): every command, the AI app setup, output files, and the data sources.
-- [docs/HOW_IT_WORKS.md](docs/HOW_IT_WORKS.md): the scoring model, term by term.
-- [docs/VALIDATION.md](docs/VALIDATION.md): how the model is tested and what the tests show.
-- [docs/experiments/](docs/experiments/): what we tried, what worked, and what didn't.
-- [docs/DEVELOPING.md](docs/DEVELOPING.md): working on the code.
+- [docs/USAGE.md](https://github.com/bryantclark/cougarmap/blob/main/docs/USAGE.md): every command, the AI app setup, output files, and the data sources.
+- [docs/HOW_IT_WORKS.md](https://github.com/bryantclark/cougarmap/blob/main/docs/HOW_IT_WORKS.md): the scoring model, term by term.
+- [docs/VALIDATION.md](https://github.com/bryantclark/cougarmap/blob/main/docs/VALIDATION.md): how the model is tested and what the tests show.
+- [docs/experiments/](https://github.com/bryantclark/cougarmap/tree/main/docs/experiments/): what we tried, what worked, and what didn't.
+- [docs/DEVELOPING.md](https://github.com/bryantclark/cougarmap/blob/main/docs/DEVELOPING.md): working on the code.
 
 ## License
 
-MIT; see [LICENSE](LICENSE). Data downloaded at run time keeps its own terms (OpenStreetMap is ODbL; the
+MIT; see [LICENSE](https://github.com/bryantclark/cougarmap/blob/main/LICENSE). Data downloaded at run time keeps its own terms (OpenStreetMap is ODbL; the
 Olympic Cougar Project GPS data used only by the validation check is CC BY-NC 4.0).
+
+<!-- mcp-name: io.github.bryantclark/cougarmap -->

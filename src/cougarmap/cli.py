@@ -152,6 +152,14 @@ def playbook() -> None:
 
 
 @app.command()
+def mcp() -> None:
+    """Run the MCP server on stdio (what AI apps start; the same as the cougarmap-mcp command)."""
+    from . import mcp_server
+
+    mcp_server.main()
+
+
+@app.command()
 def analyze(
     location: str | None = typer.Option(None, "--near", help="place name or 'lat,lon'"),
     radius_km: float = typer.Option(3.0, help="radius around --near"),

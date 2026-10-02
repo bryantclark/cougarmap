@@ -105,10 +105,23 @@ pickle, so CougarMap only reads states inside its results folder.
 
 ## A double-click installer
 
-For someone who won't use a terminal, `./scripts/make_installer.sh` (from a source checkout) builds
-`dist/CougarMap-installer.zip`. The recipient unzips it and double-clicks `Install CougarMap.command` (Mac) or
-runs `install.ps1` (Windows). It installs uv, installs CougarMap, and runs `cougarmap setup`.
-`READ-ME-FIRST.txt` explains it in plain English.
+For someone who won't use a terminal, every [GitHub release](https://github.com/bryantclark/cougarmap/releases)
+has `CougarMap-installer.zip`. Unzip it and double-click `Install CougarMap.command` (Mac), or right-click
+`install.ps1` -> Run with PowerShell (Windows). It installs uv, installs CougarMap from PyPI, and runs
+`cougarmap setup`. `READ-ME-FIRST.txt` explains it in plain English. Running it again updates CougarMap.
+
+## Updating
+
+```bash
+uv tool upgrade cougarmap
+```
+
+## In the MCP Registry
+
+CougarMap is listed in the [MCP Registry](https://registry.modelcontextprotocol.io) as
+`io.github.bryantclark/cougarmap`. Apps that install servers from the registry run it with `uvx cougarmap mcp`.
+The first start downloads its dependencies (about 150 MB) and can take a minute, longer than some apps wait.
+`uv tool install cougarmap` followed by `cougarmap setup` avoids that: the server then starts in a second.
 
 ## Uninstall
 
