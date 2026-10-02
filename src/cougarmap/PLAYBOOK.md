@@ -76,6 +76,7 @@ the user asks or the public spots are weak; they need landowner permission.
 | "send my results to Sam", "share my camera log" | `share_results(name=<the user's name>)`: the file has camera locations, so tell them to send it privately |
 | "how is the map doing in AREA?" | `validate(area)` |
 | "my camera at LAT,LON got a lion" (a one-off, not a test) | `log_camera(lat, lon, name, start=..., end=...)` (arm unpaired), then `log_check(deployment, events=[...])` |
+| "what if wind counted less?", "how do the factors change the picks?", "let me play with the weights" | `repick(area, interactive=True)` (seconds, no rerun; or `interactive=True` on `find_hotspots`), then `open_file` on `summary.outputs.explore`: a local page with a slider per factor where the top spots move live |
 | "open it" | `open_file(kmz_path)` (opens Google Earth) |
 
 `area` (explain_point, repick) is the analyzed area's name, as in the result's `summary.area`, or its folder in

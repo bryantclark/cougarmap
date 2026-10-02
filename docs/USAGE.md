@@ -49,6 +49,8 @@ cougarmap analyze --near "47.3712, -116.1029" --radius-km 1.5 --fast   # skip th
 cougarmap import-kml ~/Downloads/my-areas.kml               # your outlines and water pins
 cougarmap analyze --kml ~/Documents/CougarMap/my-data/my-areas.kml --area "My Area"
 cougarmap repick my-area --n 20 --per-zone 1
+cougarmap analyze --near "47.3712, -116.1029" --radius-km 3 --interactive   # also a page of weight sliders
+cougarmap repick my-area --interactive                       # the same page from a saved analysis, no rerun
 cougarmap explain -- my-area 47.3712 -116.1029
 cougarmap open <the .kmz path it prints>
 ```
@@ -57,7 +59,11 @@ cougarmap open <the .kmz path it prints>
 longitude missing its minus sign is made west, with a note. `explain` and `log-camera` take separate
 latitude and longitude numbers: put `--` before them so a negative longitude isn't read as an option. When
 `hotspots` or `analyze` finishes it prints a `file://` link to the map, and at a terminal it opens the map in
-Google Earth (`--no-open` skips that). Errors print one line; `COUGARMAP_DEBUG=1` shows the traceback.
+Google Earth (`--no-open` skips that). `--interactive` (on `analyze`, `hotspots` and `repick`) also writes
+`explore.html` next to the map and opens it in the browser: a slider per factor weight, switches for the people
+penalties, and the top spots moving live as you drag, with the model's own spots as faint rings. It is a local
+file in your results folder (about 3 MB for a 3 km area); only the map library and the satellite imagery come from
+the web. Errors print one line; `COUGARMAP_DEBUG=1` shows the traceback.
 `cougarmap <command> --help` lists every option.
 
 ### Field log

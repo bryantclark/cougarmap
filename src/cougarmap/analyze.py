@@ -135,15 +135,28 @@ def traffic_penalty(paved_dist: Floats, opts: Options) -> Floats:
     return (1 - opts.paved_penalty * near).astype("float32")
 
 
+SitePenalty = Literal["paved", "houses", "recreation"]
+
+
+def site_penalty_parts(A: Layers, opts: Options) -> list[tuple[SitePenalty, Floats]]:
+    """The multipliers site_penalty is the product of, in its order, each with the penalty it belongs to (the
+    houses penalty is two: the populated-area cut and the cost of every house)."""
+    parts: list[tuple[SitePenalty, Floats]] = [
+        ("paved", traffic_penalty(A["paved_dist"], opts)),
+        ("houses", 1 - opts.houses_penalty * ramp(A["houses"], opts.houses_from, opts.houses_full)),
+    ]
+    if opts.houses_exponent:
+        parts.append(("houses", np.power(1 + np.clip(A["houses"], 0, None), -opts.houses_exponent).astype("float32")))
+    parts.append(("recreation", 1 - opts.rec_penalty * ramp(A["rec_dist"], opts.rec_reach_m, opts.rec_full_m)))
+    return parts
+
+
 def site_penalty(A: Layers, opts: Options) -> Floats:
     """Score multiplier for people around a spot: paved-road traffic, houses (a little for each, a lot in
     populated areas: people, dogs, theft) and recreation sites (trailheads, campgrounds, parking)."""
     pen = np.ones(A["score"].shape, "float32")
-    pen *= traffic_penalty(A["paved_dist"], opts)
-    pen *= 1 - opts.houses_penalty * ramp(A["houses"], opts.houses_from, opts.houses_full)
-    if opts.houses_exponent:
-        pen *= np.power(1 + np.clip(A["houses"], 0, None), -opts.houses_exponent).astype("float32")
-    pen *= 1 - opts.rec_penalty * ramp(A["rec_dist"], opts.rec_reach_m, opts.rec_full_m)
+    for _, part in site_penalty_parts(A, opts):
+        pen *= part
     return pen
 
 

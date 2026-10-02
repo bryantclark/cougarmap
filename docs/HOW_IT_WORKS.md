@@ -109,6 +109,25 @@ pin.
   to face the camera. Human picks sit beside such lines far more often than control points, but as a score
   factor they did not help ([experiments/11](experiments/11-worn-trails.md)).
 
+## The weights page
+
+`--interactive` (`explore.py`) writes `explore.html`, a page that reruns the score and the picking in the browser
+as the weights change. Only the spot term depends on the weights, so the page carries, per cell of a coarser grid
+(a whole number of analysis cells, about 10 m; coarser past a million cells): the five weighted layers, the
+habitat x season multiplier, the three site-penalty multipliers and the usable ground, as block means quantized
+to uint8 (habitat uint16), deflated and base64-encoded. In the browser (a Web Worker when it can) it repeats
+`combine` exactly on that grid (the stacking ramps, the 20 m camera-zone Gaussian, the normalization by the
+weights and the 0-100 clip), multiplies in the penalties that are switched on, and picks as `pick_candidates`
+does (the 6 m smoothing, `peak_local_max`'s local maxima and greedy spacing, the snap, at most 3 per 800 m zone).
+Grid cells map to lon/lat by a quadratic fit good to a few centimetres.
+
+What it approximates: it scores block means rather than each analysis cell (the stacking is not linear, so a
+block of mixed ground scores a little differently), the peak spacing rounds 150 m to whole page cells, a block
+is usable when half its cells are, and a spot sits at a page-cell centre. On a 3 km area (9 m cells, a 3.2 MB
+page, about 120 ms per slider move) all 10 of the model's spots came back within 30 m and the page's score
+correlated with the model's at r = 0.994; on a 130 km2 area (22 m cells) 13 of 15. Reasons, walks and land names
+stay in the KMZ and summary.json.
+
 ## Scale
 
 `Habitat.score_scale` (3.0) calibrates the display so that strong real spots land at 60-100. It changes only the

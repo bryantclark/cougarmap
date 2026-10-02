@@ -64,6 +64,11 @@ runs the MCP server; `scripts/mcp_e2e.py` drives it end to end over the network.
   (`scripts/gps_check.py all` downloads the data into the cache folder, tiles it, analyzes the tiles and writes
   the report). It can veto a change, never tune one.
 - `explain`, `repick` and `validate` only read states inside the results folder, because a state file is a pickle.
+- `explore.py` writes the opt-in weights page (`explore.html`, `--interactive`): the per-cell inputs of the score
+  on a ~10 m grid, quantized and deflated into one HTML file with `explore_page.html` (the UI) and `explore.js`
+  (a port of `analyze.combine`, the site penalties and `pick_candidates`). Change those three together:
+  `tests/test_explore.py` runs `explore.js` under node (skipped without node) against a numpy copy of the page's
+  math and against the model's own spots. See [HOW_IT_WORKS.md](HOW_IT_WORKS.md#the-weights-page).
 - `setup_harnesses.py` is `cougarmap setup`. `PLAYBOOK.md` and `INSTRUCTIONS.md` are what agents read: keep the
   server instructions under 2 KB.
 

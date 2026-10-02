@@ -28,6 +28,7 @@ history is the journal.
 
 ## Agent interface
 
+- [The weights page is opt-in and local only](decisions/2026-10-02-weights-page-opt-in-local.md) — `--interactive` writes explore.html beside the KMZ; default runs unchanged; no extra dependency
 - [Tool calls return within 40 s; long work is a job](decisions/2026-09-30-background-jobs-40s.md) — background jobs keep every app under its tool timeout
 
 ## Privacy

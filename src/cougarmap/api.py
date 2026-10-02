@@ -108,19 +108,33 @@ def analyze_area(
     log: Log = print,
     user_pins: bool = True,
     fast: bool = False,
+    interactive: bool = False,
 ) -> JSON:
     """user_pins=False ignores the water and sign pins in the private KML files (validation reruns, when the pins
     were placed by the same person who chose the human-picked cameras). fast=True skips the slow extras: the worn
-    trails from 1 m lidar (a hidden KMZ layer and each spot's worn_trail hint; they change no score)."""
+    trails from 1 m lidar (a hidden KMZ layer and each spot's worn_trail hint; they change no score).
+    interactive=True also writes explore.html (summary outputs "explore"): a local page with a weight slider per
+    factor that moves the top spots live."""
     a = resolve_area(location, radius_km, kml, area_name, bbox)
     known = _known_points(log) if user_pins else []
     a.user_points = [p for p in known if p["kind"] in ("water", "seasonal_water", "sign")]
     res = run(a, _opts(month, max_walk_miles, wind_from_deg, n_candidates, fast), log=log)
+    if interactive:
+        _explore_page(res["state"], res["candidates"], res["summary"], log)
     return dict(
         summary=res["summary"],
         candidates=_strip(res["candidates"]),
         private_candidates=_strip(res["private_candidates"]),
     )
+
+
+def _explore_page(st: ModelState, cands: list[Spot], summary: JSON, log: Log) -> None:
+    """Write the interactive weights page next to the KMZ and list it in the summary's outputs."""
+    from .explore import write_page
+
+    path = write_page(st, cands, Path(summary["outputs"]["kmz"]).parent)
+    summary["outputs"]["explore"] = str(path)
+    log(f"wrote {path}")
 
 
 def _strip(cands: list[Spot]) -> list[JSON]:
@@ -502,9 +516,11 @@ def repick(
     per_zone: int = 3,
     spacing_m: float = 150.0,
     max_walk_miles: float | None = None,
+    interactive: bool = False,
 ) -> JSON:
     """Re-select camera spots from a saved analysis (e.g. more spread out, more spots) and rewrite the KMZ,
-    without recomputing. max_walk_miles re-applies the walk rule."""
+    without recomputing. max_walk_miles re-applies the walk rule. interactive=True also writes the weights page
+    (explore.html, see analyze_area) from the saved state."""
     path = _state_for(area)
     with _STATES.use(path) as st:
         o = st.opts
@@ -520,7 +536,9 @@ def repick(
         if not save_state_opts(path, o):
             save_state(st, path)
         _STATES.saved(path)
-    summary["outputs"] = {k: str(v) for k, v in paths.items()}
+        summary["outputs"] = {k: str(v) for k, v in paths.items()}
+        if interactive:
+            _explore_page(st, cands, summary, lambda *_: None)
     return dict(summary=summary, candidates=_strip(cands), private_candidates=_strip(priv))
 
 
@@ -536,11 +554,13 @@ def find_hotspots(
     wind_from_deg: float | None = None,
     log: Log = print,
     fast: bool = False,
+    interactive: bool = False,
 ) -> JSON:
     """The one-call answer to "find cougar hotspots near X": scout the region, analyze the best blocks in detail,
     merge into one ranked list and one Google Earth file. A small radius (<= 4 km), a KML area or a bbox
     [west, south, east, north] is analyzed directly, without scouting. wind_from_deg overrides the prevailing wind
-    (degrees it blows FROM). fast=True skips the slow extras (see analyze_area)."""
+    (degrees it blows FROM). fast=True skips the slow extras and interactive=True writes the weights page for each
+    analyzed block (see analyze_area); the result's "explore" lists the pages."""
     if kml or bbox or (location and radius_km is not None and radius_km <= 4):
         r = analyze_area(
             location,
@@ -553,8 +573,11 @@ def find_hotspots(
             wind_from_deg,
             log=log,
             fast=fast,
+            interactive=interactive,
         )
         r["how"] = "analyzed the whole area in detail"
+        if interactive:
+            r["explore"] = [r["summary"]["outputs"]["explore"]]
         return r
     if not location:
         raise ValueError("give a location (place name or 'lat,lon') or a kml + area_name")
@@ -588,6 +611,7 @@ def find_hotspots(
                 area_name=f"{sc['location'].split(',')[0]} block {i}",
                 log=log,
                 fast=fast,
+                interactive=interactive,
             )
             runs.append((b, r))
 
@@ -631,6 +655,7 @@ def find_hotspots(
                 center=b["center"],
                 best_spot_score=r["candidates"][0]["score"] if r["candidates"] else None,
                 kmz=r["summary"]["outputs"]["kmz"],
+                **({"explore": r["summary"]["outputs"]["explore"]} if interactive else {}),
             )
             for i, (b, r) in enumerate(runs, 1)
         ],
@@ -639,6 +664,8 @@ def find_hotspots(
         kmz=str(kmz),
         how=f"scouted {radius_km:g} km around {place}, analyzed the best {len(runs)} ~3 km blocks in detail",
     )
+    if interactive:
+        result["explore"] = [r["summary"]["outputs"]["explore"] for _, r in runs]
     (out / "summary.json").write_text(json.dumps(result, indent=2, default=str))
     return result
 
