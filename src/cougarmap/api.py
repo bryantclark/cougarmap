@@ -4,6 +4,7 @@ function returns plain JSON-able dicts."""
 from __future__ import annotations
 
 import contextlib
+import datetime as dt
 import json
 import os
 import shutil
@@ -368,6 +369,57 @@ def log_transect(
             "rename it 'lion' in the GPS app and log the survey again."
         )
     return out
+
+
+def _version() -> str:
+    from importlib.metadata import PackageNotFoundError, version
+
+    try:
+        return version("cougarmap")
+    except PackageNotFoundError:  # a source tree that was never installed
+        return "unknown"
+
+
+def share_results(name: str, out: str | None = None) -> JSON:
+    """Write the user's own field log (cameras, checks, detections, tracks, transect surveys) to one file for
+    someone they trust, who adds it to theirs with import_results. name: whose results these are. The file holds
+    camera locations: send it privately (email, a message), never publish it."""
+    doc = fieldlog.share(fieldlog.load(), name, _version())
+    recs = doc["records"]
+    path = (
+        Path(out).expanduser()
+        if out
+        else PRIVATE_DIR / f"cougarmap-field-log-{doc['shared_by']}-{dt.date.today().isoformat()}.json"
+    )
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(doc, indent=1))
+    kinds = {k: sum(r["type"] == k for r in recs) for k in ("deployment", "check", "event", "track", "transect")}
+    return dict(
+        file=str(path),
+        shared_by=doc["shared_by"],
+        cameras=len(fieldlog.deployments(recs)),
+        records=kinds,
+        note="This file has your camera locations. Send it privately (email or a message) to someone you trust; "
+        "they add it with `cougarmap import-results <file>`. Don't post it anywhere public.",
+    )
+
+
+def import_results(path: str, name: str | None = None) -> JSON:
+    """Add someone's shared field log (from share_results) to this one. Their ids, zones and routes get their name
+    as a prefix ("sam/M1"); a newer file from the same person replaces what was imported from them before. name
+    overrides the name in the file."""
+    doc = json.loads(Path(path).expanduser().read_text())
+    tag = fieldlog.share_tag(name or str(doc.get("shared_by") or ""))
+    recs = fieldlog.from_share(doc, tag)
+    replaced, total = fieldlog.replace_shared(tag, recs)
+    return dict(
+        shared_by=tag,
+        imported=len(recs),
+        replaced=replaced,
+        cameras=len(fieldlog.deployments(recs)),
+        total_records=total,
+        note=f"Their cameras show up as {tag}/<id> in field_log and count in validate.",
+    )
 
 
 def field_log() -> JSON:

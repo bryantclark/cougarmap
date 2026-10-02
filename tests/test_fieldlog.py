@@ -283,3 +283,48 @@ def test_the_human_arm_reads_its_earlier_name() -> None:
     assert rec["type"] == "deployment" and rec["arm"] == "human"
     with pytest.raises(ValueError, match="arm must be one of"):
         fl.new_deployment([], 48.0, -117.0, name="H2", arm="tracker", start="2026-10-01")
+
+
+# ---- sharing a field log --------------------------------------------------------------------------------------
+
+
+def _season() -> list[fl.Record]:
+    recs: list[fl.Record] = [
+        fl.new_deployment([], 47.37, -116.10, name="M1", arm="model", zone="z1", start="2026-10-01")
+    ]
+    recs += fl.new_check(recs, "M1", "2026-10-11", events=[dict(datetime="2026-10-03T05:00", species="cougar")])
+    recs.append(fl.new_transect(recs, "Route 1", line=[[47.37, -116.10], [47.38, -116.10]], date="2026-12-01")[0])
+    return recs
+
+
+def test_share_tag() -> None:
+    assert fl.share_tag("  Sam  O'Neil ") == "sam-o-neil" and fl.share_tag("Ana") == "ana"
+    with pytest.raises(ValueError, match="give a name"):
+        fl.share_tag(" - ")
+
+
+def test_a_shared_log_comes_back_under_the_senders_name(tmp_path: Path) -> None:
+    doc = fl.share(_season(), "Sam", "0.1.0")
+    assert doc["format"] == fl.SHARE_FORMAT and doc["shared_by"] == "sam" and len(doc["records"]) == 4
+    recs = fl.from_share(json.loads(json.dumps(doc)))
+    dep, chk, ev, tr = (cast(dict[str, Any], r) for r in recs)
+    assert dep["id"] == "sam/M1" and dep["zone"] == "sam/z1" and dep["lat"] == 47.37
+    assert chk["deployment"] == ev["deployment"] == "sam/M1"
+    assert tr["route"] == "sam/Route 1" and tr["id"].startswith("sam/Route 1")
+    assert all(cast(dict[str, Any], r)["shared_by"] == "sam" for r in recs)
+    passed_on = fl.share([*_season(), *recs], "me", "0.1.0")["records"]
+    assert len(passed_on) == 4 and not any("shared_by" in r for r in passed_on)  # never what came from someone else
+    with pytest.raises(ValueError, match="not a CougarMap shared field log"):
+        fl.from_share(dict(format="other", v=2, records=[]))
+
+
+def test_a_newer_file_from_the_same_person_replaces_the_older(tmp_path: Path) -> None:
+    log = tmp_path / "observations.jsonl"
+    fl.append(_season(), log)  # the user's own season
+    first = fl.from_share(fl.share(_season(), "Sam", "0.1.0"))
+    assert fl.replace_shared("sam", first, log) == (0, 8)
+    newer = fl.from_share(fl.share([*_season(), *fl.new_check(_season(), "M1", "2026-10-21")], "Sam", "0.1.0"))
+    assert fl.replace_shared("sam", newer, log) == (4, 9)
+    cams = fl.cameras(fl.load(log), 30)
+    assert sorted(c.dep["id"] for c in cams) == ["M1", "sam/M1"]
+    assert {c.dep["id"]: c.nights for c in cams}["sam/M1"] == 20 and not list(tmp_path.glob("*.tmp"))

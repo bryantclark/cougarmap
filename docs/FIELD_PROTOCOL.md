@@ -142,6 +142,19 @@ running about 6 months each**. To show 2 times better, about 40-50. Cameras that
 higher numbers. So cameras are a multi-season project, and that's why tracks and crossing routes come first
 in the first winter.
 
+## Sharing your results
+
+If you're working with someone, for example one of you runs cameras and the other studies the results, send them
+your whole log. Tell the assistant:
+
+> Send my results to Sam.
+
+(Command line: `cougarmap share-results --name <your first name>`.) It writes one file, and you email or message it
+to them. **The file has your camera locations, so send it only to people you trust, and never post it.** They add it
+with `cougarmap import-results <the file>`. Your cameras show up in their log under your name (`yourname/M1`), and
+their `validate` counts them. Send a new file whenever you've logged more: it replaces the last one, it doesn't
+double up.
+
 ## Checking the results
 
 Ask the assistant: **"How is the map doing in My Area?"** (it runs `validate`). Or ask: **"What have I

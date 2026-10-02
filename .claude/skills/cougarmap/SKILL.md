@@ -36,6 +36,7 @@ Hard rules: within **1 mile of walking** (along the easiest route) from a road t
 | `log_track(file, snow_age_h, confidence)` | a lion track followed in snow (GPX/KML/KMZ) |
 | `log_transect(route, file)` | a fixed-route survey after snow: waypoints = crossings (none counts) |
 | `field_log()` | what's logged: camera ids, effort, detections, tracks, surveys |
+| `share_results(name)` | the field log as one file to send privately to someone they trust |
 | `validate(area)` | test the area against the field log, plus how human camera picks rank |
 | `playbook()` | the full guidance |
 

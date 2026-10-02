@@ -43,6 +43,7 @@ def test_mcp_tool_names() -> None:
         "log_track",
         "log_transect",
         "field_log",
+        "share_results",
         "validate",
         "import_kml",
         "open_file",
@@ -177,6 +178,8 @@ def test_cli_commands(analyzed: dict[str, Any], area: str, monkeypatch: pytest.M
     assert run("log-track", str(gpx), "--date", "2026-12-01", "--confidence", "certain")["lines"] == 1
     assert run("log-transect", "R1", str(gpx), "--date", "2026-12-01")["crossings"] == 1
     assert len(run("field-log")["transects"]) == 1
+    shared = run("share-results", "--name", "Sam", "--out", str(analyzed["dir"].parent / "sam.json"))
+    assert run("import-results", shared["file"])["shared_by"] == "sam"
     res = runner.invoke(app, ["log-check", "M1", "--event", " "])
     assert res.exit_code != 0
     OBSERVATIONS_FILE.unlink()

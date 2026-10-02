@@ -309,6 +309,23 @@ def test_validate_and_field_log(analyzed: dict[str, Any], tmp_path: Path) -> Non
     assert any(line.startswith("human camera picks (1)") for line in v["summary"])
 
 
+def test_share_and_import_results(tmp_path: Path) -> None:
+    """A trusted sender's field log round-trips into this one under their name, and a newer file replaces it."""
+    api.log_camera(47.37, -116.10, name="M1", arm="model", zone="z1", start="2026-10-01")
+    api.log_check("M1", "2026-10-11", events=[dict(datetime="2026-10-03T05:00", species="cougar")])
+    s = api.share_results("Sam", out=str(tmp_path / "sam.json"))
+    assert s["shared_by"] == "sam" and s["cameras"] == 1 and s["records"]["event"] == 1 and "privately" in s["note"]
+    assert api.share_results("Sam")["file"].startswith(str(PRIVATE_DIR))
+    r = api.import_results(s["file"])
+    assert (r["shared_by"], r["imported"], r["replaced"], r["cameras"]) == ("sam", 3, 0, 1)
+    assert [c["id"] for c in api.field_log()["cameras"]] == ["M1", "sam/M1"]
+    again = api.import_results(s["file"], name="Samuel")  # filed under another name: a separate sender
+    assert again["shared_by"] == "samuel" and again["replaced"] == 0
+    assert api.import_results(s["file"])["replaced"] == 3  # the same sender again: replaced, not duplicated
+    assert len(api.field_log()["cameras"]) == 3
+    OBSERVATIONS_FILE.unlink()
+
+
 # ---- areas, KML import, places, wind, opening files ---------------------------------------------------------
 
 

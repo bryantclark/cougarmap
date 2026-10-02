@@ -60,6 +60,7 @@ the user asks or the public spots are weak; they need landowner permission.
 | "log this lion track" + a GPX/KML file | `log_track(file, snow_age_h, confidence)` |
 | "surveyed Route 1, two crossings / nothing" | `log_transect(route, file or crossings)` |
 | "what have I logged?", "which cameras are out?" | `field_log()` |
+| "send my results to Sam", "share my camera log" | `share_results(name=<the user's name>)`: the file has camera locations, so tell them to send it privately |
 | "how is the map doing in AREA?" | `validate(area)` |
 | "my camera at LAT,LON got a lion" (a one-off, not a test) | `log_camera(lat, lon, name, start=..., end=...)` (arm unpaired), then `log_check(deployment, events=[...])` |
 | "open it" | `open_file(kmz_path)` (opens Google Earth) |
@@ -95,7 +96,7 @@ Month: use the current month unless the user names a season or month. The wind c
 - Pass on `summary.notes`. When every spot scores low (no mapped water, solid timber or open flats), the spots
   are the best of weak ground and the note says so: tell the user, and ask whether they know of springs, ponds
   or guzzlers the maps miss (pins in their KML count as water).
-- Don't dump raw JSON. Keep it conversational, the way you'd tell a hunting partner.
+- Don't dump raw JSON. Keep it conversational, the way you'd tell a friend who photographs wildlife.
 
 ## Field log: testing the map against lions
 
