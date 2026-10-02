@@ -49,7 +49,7 @@ runs the MCP server; `scripts/mcp_e2e.py` drives it end to end over the network.
   layer exists" checks in the model code.
 - `fieldlog.py` is the field log (`observations.jsonl` in the private folder): camera deployments (arm, zone,
   effort), checks and detection events, snow tracks and crossing-transect surveys, as version-2 records. Old
-  `log_result` records are migrated to unpaired deployments; the file is rewritten once and the original kept as
+  records (from the old one-off `log_result`) are migrated to unpaired deployments; the file is rewritten once and the original kept as
   `observations.v1.bak`. GPX/KML/KMZ tracks and routes are read here.
 - `truth.py` tests the model against that lion truth: camera rates by arm against a published base rate, a paired
   permutation test within zones, snow tracks against rotated and shifted copies, and the AUC of crossings along

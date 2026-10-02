@@ -32,10 +32,10 @@ the areas that hold them, and describe the setup in `data/private/eval.toml` (gi
 ```toml
 kml = "my-areas.kml"          # relative to this file
 states = "../../out/no-pins"  # optional; default out/
-check = "south"               # optional: an area held out of tuning, reported on its own
+check = "b"                   # optional: an area held out of tuning, reported on its own
 [areas]
-north = "north-ridge"         # key = the analyzed area's slug
-south = "south-fork"
+a = "area-a"                  # key = the analyzed area's slug
+b = "area-b"
 ```
 
 Then `uv run python scripts/eval_picks.py --by-cam`. `./scripts/rerun_eval.sh <kml> "<Area>" ...` re-analyzes the

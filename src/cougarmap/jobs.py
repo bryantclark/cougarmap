@@ -122,9 +122,7 @@ def _run(job_id: str) -> None:
             _write(d / "status.json", st)
 
     try:
-        runners: dict[str, Callable[..., JSON]] = dict(
-            analyze=api.analyze_area, scout=api.scout_region, hotspots=api.find_hotspots
-        )
+        runners: dict[str, Callable[..., JSON]] = dict(hotspots=api.find_hotspots)
         fn = runners[spec["kind"]]
         result = fn(**spec["params"], log=log)
         _write(d / "result.json", result)

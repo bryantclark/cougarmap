@@ -12,7 +12,7 @@ and travel, tested against human camera picks, open GPS collar data, and real li
 ## Core entities
 
 - **Area** — a block analyzed at full resolution (a bbox, a point + radius, or a polygon from a KML). Has one
-  saved **State** and many **Spots**. Named by slug (`north-ridge`).
+  saved **State** and many **Spots**. Named by slug (`my-area`).
 - **Region** — the large circle a **Scout** screens on a coarse grid to choose which Areas deserve analysis.
 - **Factor** — one of the four method layers (wind, edges, pinch points, limited water), computed per Area.
 - **Layer** — any raster the model computes for an Area (factors, terrain, access, land, season). The one schema

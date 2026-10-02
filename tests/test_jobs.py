@@ -25,25 +25,25 @@ def inline(monkeypatch: pytest.MonkeyPatch) -> list[str]:
 
 
 def test_job_runs_to_done_with_progress(inline: list[str], monkeypatch: pytest.MonkeyPatch) -> None:
-    def fake_analyze(**k: Any) -> dict[str, Any]:
+    def fake_hotspots(**k: Any) -> dict[str, Any]:
         k["log"]("step one")
         return dict(summary=dict(area=k["area_name"]))
 
-    monkeypatch.setattr(api, "analyze_area", fake_analyze)
-    jid = jobs.start("analyze", dict(area_name="Test"))
+    monkeypatch.setattr(api, "find_hotspots", fake_hotspots)
+    jid = jobs.start("hotspots", dict(area_name="Test"))
     st = jobs.status(jid, tail=5)
     assert st["state"] == "done" and st["result"] == dict(summary=dict(area="Test")) and st["progress"] == ["step one"]
     assert st["started"] and st["finished"] and inline == [jid]
     listed = jobs.list_jobs()
-    assert listed[0] == dict(job_id=jid, kind="analyze", state="done", params=dict(area_name="Test"))
+    assert listed[0] == dict(job_id=jid, kind="hotspots", state="done", params=dict(area_name="Test"))
 
 
 def test_failed_job_reports_the_error(inline: list[str], monkeypatch: pytest.MonkeyPatch) -> None:
     def boom(**_: Any) -> dict[str, Any]:
         raise ValueError("no such area")
 
-    monkeypatch.setattr(api, "scout_region", boom)
-    st = jobs.status(jobs.start("scout", dict(location="x")))
+    monkeypatch.setattr(api, "find_hotspots", boom)
+    st = jobs.status(jobs.start("hotspots", dict(location="x")))
     assert st["state"] == "failed" and st["error"] == "ValueError: no such area"
 
 

@@ -13,7 +13,7 @@ count how many camera pins fall within 50/100/150 m of one. It keeps smoothing e
 fewer, broader peaks, which helps rank metrics without putting a pick closer to the pin.
 
 Usage (scripts/eval_picks.py runs this module):
-    uv run python scripts/eval_picks.py --kml picks.kml --area north=north-ridge --area south=south-fork
+    uv run python scripts/eval_picks.py --kml picks.kml --area a=area-a --area b=area-b
     uv run python scripts/eval_picks.py ... --raw         # the score alone (no site penalties)
     uv run python scripts/eval_picks.py ... --by-cam      # plus per-camera ranks
     uv run python scripts/eval_picks.py ... --check south # report one area's fixed-K on its own (a held-out area)
@@ -59,10 +59,10 @@ class EvalConfig:
 
     kml = "my-areas.kml"          # the CamNN pins; relative paths are relative to the config file
     states = "../../out/no-pins"  # optional: the folder of <slug>/state.pkl (default STATES_DIR)
-    check = "south"               # optional: the held-out area's key
+    check = "b"                   # optional: the held-out area's key
     [areas]                       # key = analyzed area slug
-    north = "north-ridge"
-    south = "south-fork"
+    a = "area-a"
+    b = "area-b"
     """
 
     kml: Path | None = None

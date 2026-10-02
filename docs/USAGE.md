@@ -31,7 +31,7 @@ Things to ask:
 
 - "Find cougar camera spots near Missoula, MT for November."
 - "Scan my property at 47.3712, -116.1029." (its private-land spots come back separately)
-- "Import my Google Earth file at ~/Downloads/my-areas.kml and look at the North Ridge area."
+- "Import my Google Earth file at ~/Downloads/my-areas.kml and look at the My Area area."
 - "Why is spot 3 good?" / "Give me more spread-out spots." / "Only within half a mile of the road."
 - "Assume the wind is from the west."
 - "I put a camera out at ..." / "Checked camera M1: a cougar on Nov 3 at 5:40 am." / "How is the map doing?"
@@ -42,19 +42,17 @@ Things to ask:
 cougarmap analyze --near "47.3712, -116.1029" --radius-km 3   # everything around a spot, in detail
 cougarmap hotspots "Missoula, MT"                             # a region: screens 25 km, analyzes the best blocks
 cougarmap hotspots "Missoula, MT" --radius-km 40 --background && cougarmap jobs
-cougarmap scout "Missoula, MT" --radius-km 40              # a quick regional screen
 cougarmap analyze --bbox=-116.13,47.35,-116.08,47.39        # one area in detail
 cougarmap analyze --near "47.3712, -116.1029" --radius-km 1.5   # your property: see its P1, P2... spots
 cougarmap import-kml ~/Downloads/my-areas.kml               # your outlines and water pins
-cougarmap analyze --kml ~/Documents/CougarMap/my-data/my-areas.kml --area "North Ridge"
-cougarmap repick north-ridge --n 20 --per-zone 1
-cougarmap explain -- north-ridge 47.3712 -116.1029
-cougarmap wind "Missoula, MT" --month 11
+cougarmap analyze --kml ~/Documents/CougarMap/my-data/my-areas.kml --area "My Area"
+cougarmap repick my-area --n 20 --per-zone 1
+cougarmap explain -- my-area 47.3712 -116.1029
 cougarmap open <the .kmz path it prints>
 ```
 
-`hotspots`, `scout`, `wind` and `analyze --near` take coordinates as typed (`47.37, -116.10`, quoted or not). A
-longitude missing its minus sign is made west, with a note. `explain`, `log` and `log-camera` take separate
+`hotspots` and `analyze --near` take coordinates as typed (`47.37, -116.10`, quoted or not). A
+longitude missing its minus sign is made west, with a note. `explain` and `log-camera` take separate
 latitude and longitude numbers: put `--` before them so a negative longitude isn't read as an option. When
 `hotspots` or `analyze` finishes it prints a `file://` link to the map, and at a terminal it opens the map in
 Google Earth (`--no-open` skips that). Errors print one line; `COUGARMAP_DEBUG=1` shows the traceback.
@@ -66,10 +64,9 @@ Google Earth (`--no-open` skips that). Errors print one line; `COUGARMAP_DEBUG=1
 cougarmap log-camera --name M1 --arm model --zone z1 --trail-type game-trail -- 47.3712 -116.1029
 cougarmap log-check M1 --event "2026-11-03T05:40 cougar 1" --event "2026-11-10T19:00 deer 3"
 cougarmap log-track ~/Downloads/track.gpx --snow-age-h 20 --confidence certain
-cougarmap log-transect "Ridge road" ~/Downloads/ridge.gpx     # waypoints named "lion" are crossings
-cougarmap log --lion --name C7 --start 2026-09-26 --detections 2 -- 47.3712 -116.1029   # a one-off result
+cougarmap log-transect "Route 1" ~/Downloads/ridge.gpx     # waypoints named "lion" are crossings
 cougarmap field-log
-cougarmap validate north-ridge
+cougarmap validate my-area
 ```
 
 [FIELD_PROTOCOL.md](FIELD_PROTOCOL.md) explains what to record and why.

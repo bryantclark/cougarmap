@@ -5,7 +5,7 @@ WHAT IT DOES
 Ask your AI assistant something like:
     "Find me the cougar hotspots near Missoula, MT"
     "Scan my property at 47.3712, -116.1029"
-    "Look at the North Ridge area in my Google Earth file"
+    "Look at the My Area area in my Google Earth file"
 It studies the terrain (wind, cold air drainage, edges, pinch points, water), picks the best
 trail-camera spots within a mile's walk of an open road, explains why each one is good, and makes
 a Google Earth file with the spots, walking routes and map layers.

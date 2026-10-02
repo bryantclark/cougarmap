@@ -114,12 +114,6 @@ async def explain_point(area: str, lat: float, lon: float, search_m: float = 25.
 
 
 @server.tool(structured_output=False)
-async def wind_summary(location: str, month: int | None = None) -> JSON:
-    """Prevailing high-pressure wind (dawn/dusk/day) for a place and month."""
-    return await _bg(api.wind_summary, location, month)
-
-
-@server.tool(structured_output=False)
 async def validate(area: str, kml: str | None = None) -> JSON:
     """Test an analyzed area against the lion truth in the field log: camera detections per 100 camera-nights by
     arm (vs random on-trail cameras, and model vs control in the same zone), snow tracks vs shifted copies,

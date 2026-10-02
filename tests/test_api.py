@@ -243,9 +243,10 @@ def test_validate_and_field_log(analyzed: dict[str, Any], tmp_path: Path) -> Non
     """Log a season of field work on the synthetic area (paired cameras, a snow track, two transect surveys) and
     test the area against it."""
     best = analyzed["candidates"][0]
-    r = api.log_result(best["lat"], best["lon"], True, name="Cam01", detections=2, times=["2026-10-01T06:10"])
-    assert r["saved"] and r["total"] == 3 and Path(r["file"]) == OBSERVATIONS_FILE
-    assert r["record"]["arm"] == "unpaired" and len(r["events"]) == 2
+    r = api.log_camera(best["lat"], best["lon"], name="Cam01", start="2026-09-30")
+    assert r["deployment"]["arm"] == "unpaired" and OBSERVATIONS_FILE.exists()
+    ev = [dict(datetime="2026-10-01T06:10", species="cougar"), dict(datetime="2026-10-01T05:00", species="cougar")]
+    assert api.log_check("Cam01", "2026-10-01", events=ev)["detections"]["cougar"] == 2
     assert api.read_observations()[0]["type"] == "deployment"
     far = [synthetic.lonlat(-450, -450)[::-1], synthetic.lonlat(450, -450)[::-1]]
     for z, (lat, lon) in enumerate(far):
@@ -263,8 +264,8 @@ def test_validate_and_field_log(analyzed: dict[str, Any], tmp_path: Path) -> Non
     t = api.log_track(points=[list(synthetic.lonlat(u, 0)[::-1]) for u in (-60, 0, 60)], date="2026-12-02")
     assert t["saved"] and 0.1 < t["km"] < 0.14
     route = [list(synthetic.lonlat(u, best_v)[::-1]) for u, best_v in ((-500, 0), (500, 0))]
-    s1 = api.log_transect("Ridge road", line=route, crossings=[list(synthetic.lonlat(0, 0)[::-1])], date="2026-12-02")
-    s2 = api.log_transect("Ridge road", date="2026-12-09")
+    s1 = api.log_transect("Route 1", line=route, crossings=[list(synthetic.lonlat(0, 0)[::-1])], date="2026-12-02")
+    s2 = api.log_transect("Route 1", date="2026-12-09")
     assert s1["crossings"] == 1 and s2["crossings"] == 0 and s2["km"] == s1["km"]
     assert "ignored_waypoints" not in s1
     (lat0, lon0), (lat1, lon1) = route
@@ -274,7 +275,7 @@ def test_validate_and_field_log(analyzed: dict[str, Any], tmp_path: Path) -> Non
         f'<wpt lat="{(lat0 + lat1) / 2}" lon="{(lon0 + lon1) / 2}"><name>lion</name></wpt>'
         f'<trk><trkseg><trkpt lat="{lat0}" lon="{lon0}"/><trkpt lat="{lat1}" lon="{lon1}"/></trkseg></trk></gpx>'
     )
-    s3 = api.log_transect("Ridge road", file=str(gpx), date="2026-12-16")
+    s3 = api.log_transect("Route 1", file=str(gpx), date="2026-12-16")
     assert s3["crossings"] == 1 and s3["ignored_waypoints"] == ["Parking"] and "Parking" in s3["note"]
     log = api.field_log()
     assert [c["id"] for c in log["cameras"]] == ["Cam01", "M0", "C0", "M1", "C1", "T0"]
@@ -297,7 +298,7 @@ def test_validate_and_field_log(analyzed: dict[str, Any], tmp_path: Path) -> Non
     assert (split["near_road"] or split["away_from_road"])["n"] == 1  # the one track lands in one group
     assert (split["near_road"] is None) == (not track["found_near_road"])
     tx = v["crossing_transects"]
-    assert tx["surveys"] == 3 and tx["crossings"] == 2 and tx["routes"] == ["Ridge road"] and 0 <= tx["auc"] <= 1
+    assert tx["surveys"] == 3 and tx["crossings"] == 2 and tx["routes"] == ["Route 1"] and 0 <= tx["auc"] <= 1
     assert v["human_picks"]["picks"] == 1 and v["human_picks"]["by_pick"]["Cam01"] <= 0.5
     assert any("model vs control" in line for line in v["summary"])
     assert any("too few nights" in line for line in v["summary"])  # Cam01's single logged night
@@ -336,14 +337,6 @@ def test_resolve_area(tmp_path: Path) -> None:
     assert api.resolve_area(kml=str(_kml(tmp_path, (lat, lon))), area_name="synthetic").name == "Synthetic Area"
     with pytest.raises(ValueError, match="give a location"):
         api.resolve_area()
-
-
-def test_wind_summary() -> None:
-    with synthetic.offline():
-        w = api.wind_summary(f"{synthetic.LAT},{synthetic.LON}", month=10)
-    assert w["prevailing_from"] == "W" and w["dawn"]["from_compass"] == "W" and w["month"] == 10
-    assert w["most_common_from"] == "W" and w["dawn"]["most_common_from"] == "N"  # the fake's flat rose
-    assert w["ground_level"]["from_compass"] == "N" and "consistency" in w["how_to_read"]
 
 
 def test_open_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
