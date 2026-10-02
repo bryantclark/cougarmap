@@ -17,6 +17,7 @@ import pytest
 
 import toys
 from cougarmap import api, state, statefile
+from cougarmap.analyze import site_penalty
 from cougarmap.config import PROJECT_ROOT, Options
 from cougarmap.grid import Grid
 from cougarmap.state import SAVED, STATE_VERSION, Store, load_state, migrate, save_state, save_state_opts
@@ -226,6 +227,7 @@ def _version1_tree() -> dict[str, Any]:
     layers["n_on"] = layers["n_on"].astype(np.int64)
     opts = Options(month=10, n_candidates=7)
     del opts.__dict__["paved_penalty"], opts.weights.__dict__["habitat"]
+    del opts.__dict__["houses_exponent"]  # older states have no house cost: they get it on repick
     opts.__dict__["near_road_penalty_m"] = 40.0  # a field removed since
     slim = {f.name: getattr(st, f.name) for f in dataclasses.fields(st) if f.name not in ("layers", "unmodeled")}
     return dict(slim=dict(slim, opts=opts, meta=meta), arrays=layers)
@@ -255,6 +257,9 @@ def test_migrate_fills_what_old_states_lack(tmp_path: Path) -> None:
     assert A["paved_dist"].min() >= 800 and not A["travel"].any() and (A["context"] == 1).all()
     assert st.opts.n_candidates == 7 and st.opts.paved_penalty == Options().paved_penalty
     assert st.opts.weights.habitat == Options().weights.habitat and "near_road_penalty_m" not in vars(st.opts)
+    assert vars(st.opts)["houses_exponent"] == pytest.approx(0.34)
+    A["houses"][0, 0] = 3.0  # what a repick of the old state now applies
+    assert site_penalty(A, st.opts)[0, 0] == pytest.approx(4**-0.34 * site_penalty(A, Options(houses_exponent=0))[0, 0])
 
     save_state(st, tmp_path / "v3.pkl")  # what a repick of an old-format state writes
     again = load_state(tmp_path / "v3.pkl")

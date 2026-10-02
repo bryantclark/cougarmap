@@ -185,9 +185,10 @@ class Options:
     paved_penalty: float = 0.7  # score is cut by up to this much beside a paved road: traffic, people, theft
     paved_full_m: float = 20.0  # the full paved-road cut applies this close (road, shoulder, pull-outs)
     paved_reach_m: float = 800.0  # the cut fades out linearly by this distance from pavement
-    # populated areas, not single buildings: lions use barns and homesteads; towns and subdivisions mean people,
-    # dogs and theft. Houses (footprints >= house_min_m2) are counted within houses_radius_m; rural ground (a
-    # homestead or a few neighbours) costs nothing, edge-of-town density starts the cut, town density gets it all.
+    # people around a spot: houses (footprints >= house_min_m2) are counted within houses_radius_m. Every house
+    # costs a little (people, dogs, camera theft: houses_exponent below), and towns and subdivisions cost a lot:
+    # edge-of-town density starts the populated-area cut, town density gets it all. Rural ground is no longer
+    # free, but a homestead or a few neighbours cost far less than a town.
     house_min_m2: float = 50.0  # smaller footprints (sheds, blinds, trailers, false detections) are ignored
     houses_radius_m: float = 500.0
     houses_from: float = 15.0  # no cut up to this many houses within houses_radius_m (~19 per km2)
@@ -195,6 +196,10 @@ class Options:
     # <= 76.5 residences/km2)
     houses_full: float = 60.0
     houses_penalty: float = 0.7  # score is cut by up to this much in a populated area
+    # every house within houses_radius_m costs a little: score x (1 + houses) ** -houses_exponent, on top of the
+    # populated-area cut (1 house x0.79, 5 x0.54, 15 x0.39). Chosen on SNAPSHOT USA cameras (within-array, out of
+    # region), collar day beds and the human picks (docs/experiments/10-house-cost.md). 0 turns it off.
+    houses_exponent: float = 0.34
     # recreation sites (trailheads, campgrounds, picnic sites, parking, toilets, shelters: OpenStreetMap): people
     # and dogs at the spot, and cameras get found. Set before any test (docs/VALIDATION.md, Site penalties).
     rec_penalty: float = 0.3  # score is cut by up to this much beside one

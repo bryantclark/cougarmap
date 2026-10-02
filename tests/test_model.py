@@ -180,19 +180,42 @@ def test_osm_is_paved() -> None:
     assert not vector.osm_is_paved({"surface": "asphalt"})  # a paved parking lot area, not a road
 
 
-def test_site_penalty_combines_traffic_and_populated_areas() -> None:
-    A = cast("Layers", {"score": np.ones((3, 3), "float32"), "paved_dist": np.full((3, 3), 2000.0, "float32")})
+def _houses(n: float, paved_m: float = 2000.0) -> Layers:
+    A = cast("Layers", {"score": np.ones((3, 3), "float32"), "paved_dist": np.full((3, 3), paved_m, "float32")})
     A["rec_dist"] = np.full((3, 3), 2000.0, "float32")
-    A["houses"] = np.full((3, 3), 15.0, "float32")  # rural: a homestead and some neighbours cost nothing
-    assert np.all(site_penalty(A, Options()) == 1)
-    A["houses"] = np.full((3, 3), (15 + 60) / 2, "float32")  # halfway to town density
-    assert np.allclose(site_penalty(A, Options()), 0.65)
-    A["houses"] = np.full((3, 3), 60.0, "float32")  # ~76 houses/km2: the full cut
-    assert np.allclose(site_penalty(A, Options()), 0.3)
-    A["houses"] = np.full((3, 3), 400.0, "float32")  # a town
-    assert np.allclose(site_penalty(A, Options()), 0.3)
-    A["paved_dist"] = np.zeros((3, 3), "float32")
-    assert np.allclose(site_penalty(A, Options()), 0.3 * 0.3)
+    A["houses"] = np.full((3, 3), n, "float32")
+    return A
+
+
+def test_site_penalty_combines_traffic_and_populated_areas() -> None:
+    """With houses_exponent 0, the populated-area ramp alone, exactly as before the house cost."""
+    old = Options(houses_exponent=0)
+    assert np.all(site_penalty(_houses(15), old) == 1)  # rural: a homestead and some neighbours cost nothing
+    assert np.allclose(site_penalty(_houses((15 + 60) / 2), old), 0.65)  # halfway to town density
+    assert np.allclose(site_penalty(_houses(60), old), 0.3)  # ~76 houses/km2: the full cut
+    assert np.allclose(site_penalty(_houses(400), old), 0.3)  # a town
+    assert np.allclose(site_penalty(_houses(400, paved_m=0), old), 0.3 * 0.3)
+
+
+def test_every_house_costs_a_little_on_top_of_the_populated_area_cut() -> None:
+    o = Options()
+    assert o.houses_exponent == pytest.approx(0.34)
+    assert np.all(site_penalty(_houses(0), o) == 1)
+    assert np.allclose(site_penalty(_houses(1), o), 2**-0.34)  # ~0.79
+    assert np.allclose(site_penalty(_houses(15), o), 16**-0.34)  # ~0.39: the ramp hasn't started
+    assert np.allclose(site_penalty(_houses(37.5), o), 0.65 * 38.5**-0.34)
+    assert np.allclose(site_penalty(_houses(60), o), 0.3 * 61**-0.34)
+    assert np.allclose(site_penalty(_houses(60, paved_m=0), o), 0.3 * 0.3 * 61**-0.34)
+
+
+def test_more_houses_never_raise_the_score() -> None:
+    A = _houses(0)
+    A["houses"] = np.arange(401, dtype="float32").reshape(1, -1)
+    A["score"] = np.ones_like(A["houses"])
+    A["paved_dist"] = np.full_like(A["houses"], 2000.0)
+    A["rec_dist"] = np.full_like(A["houses"], 2000.0)
+    pen = site_penalty(A, Options())[0]
+    assert np.all(np.diff(pen) <= 0) and pen[0] == 1 and pen[-1] < pen[1]
 
 
 def test_recreation_sites_cut_the_score() -> None:
@@ -261,8 +284,9 @@ def test_populated_areas_cut_the_score() -> None:
     st.layers["houses"][100, 252] = 3  # a few rural neighbours
     apply_masks(st)
     fin = st.layers["final"]
-    assert fin[100, 250] == pytest.approx(fin[100, 251] * (1 - st.opts.houses_penalty))
-    assert fin[100, 252] == pytest.approx(fin[100, 251])
+    e = st.opts.houses_exponent
+    assert fin[100, 250] == pytest.approx(fin[100, 251] * (1 - st.opts.houses_penalty) * 101**-e, rel=1e-4)
+    assert fin[100, 252] == pytest.approx(fin[100, 251] * 4**-e, rel=1e-4)  # a few neighbours cost a little
 
 
 # ---- picking spots ------------------------------------------------------------------------------------------
@@ -447,6 +471,16 @@ def test_pinch_water_and_people_reasons() -> None:
     assert "near spring/seep (NHD) - few other water sources within a mile" in r
     assert any(s.startswith("populated area: 40 houses within 500 m") for s in r)
     assert "120 m from a trailhead/campground/parking area: people (score reduced)" in r
+
+
+def test_a_few_houses_get_their_own_reason() -> None:
+    st = toy()
+    r = _reasons(st, houses=3)
+    assert "3 houses within 500 m: people, dogs, camera theft (score x0.62)" in r
+    assert "1 house within 500 m: people, dogs, camera theft (score x0.79)" in _reasons(st, houses=1)
+    assert not any("house" in s for s in _reasons(st, houses=0))
+    st.opts.houses_exponent = 0  # off: a few houses cost nothing, so no reason
+    assert not any("house" in s for s in _reasons(st, houses=3))
 
 
 def test_winter_reasons_and_season_factor() -> None:

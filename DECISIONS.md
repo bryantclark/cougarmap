@@ -21,6 +21,7 @@ history is the journal.
 
 ## Model and validation
 
+- [Every house within 500 m costs a little](decisions/2026-10-02-every-house-costs-a-little.md) — score x (1 + houses)^-0.34 on top of the populated-area cut; homesteads are no longer free
 - [Human picks are the primary model metric; GPS data only vetoes](decisions/2026-10-01-human-picks-primary-metric.md) — pin-free human-pick ranks judge changes; out-of-region collar data can only block clear harm
 - [Speedups must not change results](decisions/2026-09-30-speedups-preserve-results.md) — kernels tested against the code they replace; reruns stay bit-identical
 

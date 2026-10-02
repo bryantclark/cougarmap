@@ -57,11 +57,16 @@ locations stay private; the aggregate results are:
 | v1 score | 86% (99%) | 0.73 | 8% (1%) | 48% (20%) |
 | v2 | 50% (91%) | 0.81 | 12% (3%) | 48% (20%) |
 | v3 | 46% (89%) | 0.81 | 16% (4%) | 60% (21%) |
-| **v3.1 (current)** | **43.5% (89%)** | **0.81** | 20% (4%) | 52% (21%) |
+| v3.1 | 43.5% (89%) | 0.81 | 20% (4%) | 52% (21%) |
+| **v3.2: every house costs a little (current)** | **36.1% (87%)** | **0.82** | 28% (5%) | 52% (20%) |
 
 All three areas were used in tuning, so none of them is a blind test. Per site, v3 against v2 is 14 better, 9
 worse and 2 tied (p = 0.40), and v3.1 against v3 is 11 better and 9 worse: 25 sites are a tripwire, not a test
 with power.
+v3.2 (score x (1 + houses within 500 m)^-0.34, [experiments/10](experiments/10-house-cost.md)) against v3.1: 22
+better, 2 worse, 1 tied; every area better; GPS pooled rank unchanged at 0.514 (23 animals better, 16 worse). It also
+lifted within-array camera concordance in open SNAPSHOT USA data out of region (+0.010) and collar day beds in all
+12 groups.
 [experiments/](experiments/) has every change, ablation, placebo and negative result behind these numbers.
 
 ### Controls to rerun when smoothing or terrain terms change
