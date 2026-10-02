@@ -9,7 +9,10 @@ uv run ruff format . && uv run ruff check --fix .   # fix formatting and auto-fi
 uv run pre-commit install -t pre-commit -t pre-push # optional: ruff + mypy on commit, pytest on push
 ```
 
-`./scripts/check.sh` must pass before every commit; CI runs the same script. Config lives in `pyproject.toml`.
+`./scripts/check.sh` must pass before every commit. CI (`.github/workflows/ci.yml`) runs it on Linux, runs the
+tests on macOS and Windows with Python 3.12 (the installer's version), and builds the wheel and runs it the way
+the installer does. `main` is protected: changes land through pull requests with passing CI. Actions are pinned to
+commit SHAs, and Dependabot proposes updates to them and to the locked dependencies weekly. Config lives in `pyproject.toml`.
 mypy runs in strict mode over `src`, `tests` and `scripts`. The only `type: ignore`s are for untyped third-party
 APIs (scikit-image, numba).
 

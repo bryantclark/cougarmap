@@ -52,6 +52,7 @@ def home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setattr(S, "H", tmp_path)
     monkeypatch.setattr(S, "APPS", tmp_path / "Applications")
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "AppData"))
+    monkeypatch.setenv("APPDATA", str(tmp_path / "AppData" / "Roaming"))  # Claude Desktop's config on Windows
     monkeypatch.setattr(S, "DATA_HOME", tmp_path / "CougarMap")
     monkeypatch.setattr(shutil, "which", lambda name: None)
     monkeypatch.delenv("CODEX_HOME", raising=False)
@@ -120,4 +121,4 @@ def test_unreadable_config_is_left_alone(home: Path) -> None:
     assert S.run(only=["cursor"])["harnesses"]["Cursor"][0].startswith("skipped")
     assert S._toml_set(home / "none.toml", None, dry=False).startswith("nothing to remove")
     assert S._json_merge(home / "none.json", None, dry=False).startswith("nothing to remove")
-    assert S.server_command()[-1].endswith(("cougarmap-mcp", "cougarmap.mcp_server"))
+    assert S.server_command()[-1].endswith(("cougarmap-mcp", "cougarmap-mcp.exe", "cougarmap.mcp_server"))

@@ -4,6 +4,7 @@ served offline: analyze, outputs, re-pick, explain, validate, observations, KML 
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import zipfile
 from pathlib import Path
@@ -347,6 +348,7 @@ def test_wind_summary() -> None:
 def test_open_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     opened: list[list[str]] = []
     monkeypatch.setattr(subprocess, "Popen", lambda args, **_: opened.append(args))
+    monkeypatch.setattr(os, "startfile", lambda path: opened.append([path]), raising=False)  # Windows
     f = tmp_path / "x.kmz"
     f.write_bytes(b"")
     assert api.open_file(str(f)) == dict(opened=True, path=str(f)) and opened[0][-1] == str(f)
