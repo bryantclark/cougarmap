@@ -67,6 +67,10 @@ v3.2 (score x (1 + houses within 500 m)^-0.34, [experiments/10](experiments/10-h
 better, 2 worse, 1 tied; every area better; GPS pooled rank unchanged at 0.514 (23 animals better, 16 worse). It also
 lifted within-array camera concordance in open SNAPSHOT USA data out of region (+0.010) and collar day beds in all
 12 groups.
+Not kept after v3.2 ([experiments/12](experiments/12-reshape-prey-tuning.md)): factor reshapes (fine ruggedness,
+rock as edge cover, incised draws, local-relative scoring), a deer and elk prey layer, and a cross-validated
+tuning of about 30 weights and definitions. None passed the held-out checks; the best (a signed canopy-edge
+multiplier) gained 2 points on the picks and +0.007 camera concordance, inside the noise.
 [experiments/](experiments/) has every change, ablation, placebo and negative result behind these numbers.
 
 ### Controls to rerun when smoothing or terrain terms change
