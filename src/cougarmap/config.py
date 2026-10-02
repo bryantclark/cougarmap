@@ -252,8 +252,9 @@ class Options:
     zone_radius_m: float = 800.0
     max_cells: int = 12_000_000  # caps analysis resolution for big areas (~5 m for 300 km2)
     min_res_m: float = 3.0
-    # worn trails from 1 m lidar (WornTrails): a hidden KMZ layer and a per-spot hint; never changes a score
-    worn_trails: bool = False
+    # worn trails from 1 m lidar (WornTrails): a hidden KMZ layer and a per-spot hint; never changes a score.
+    # On unless the run is fast (fast=True / --fast skips the slow extras).
+    worn_trails: bool = True
     weights: Weights = field(default_factory=Weights)
     user_points: list[UserPoint] = field(default_factory=list)  # pins: kind water | seasonal_water | sign
 

@@ -38,14 +38,14 @@ def _opts(
     max_walk_miles: float = 1.0,
     wind_from_deg: float | None = None,
     n_candidates: int = 15,
-    worn_trails: bool = False,
+    fast: bool = False,
 ) -> Options:
     return Options(
         month=month,
         max_walk_miles=max_walk_miles,
         wind_from_deg=wind_from_deg,
         n_candidates=n_candidates,
-        worn_trails=worn_trails,
+        worn_trails=not fast,
     )
 
 
@@ -107,15 +107,15 @@ def analyze_area(
     n_candidates: int = 15,
     log: Log = print,
     user_pins: bool = True,
-    worn_trails: bool = False,
+    fast: bool = False,
 ) -> JSON:
     """user_pins=False ignores the water and sign pins in the private KML files (validation reruns, when the pins
-    were placed by the same person who chose the human-picked cameras). worn_trails=True adds worn trails from
-    1 m lidar (a hidden KMZ layer and each spot's worn_trail hint; no score changes)."""
+    were placed by the same person who chose the human-picked cameras). fast=True skips the slow extras: the worn
+    trails from 1 m lidar (a hidden KMZ layer and each spot's worn_trail hint; they change no score)."""
     a = resolve_area(location, radius_km, kml, area_name, bbox)
     known = _known_points(log) if user_pins else []
     a.user_points = [p for p in known if p["kind"] in ("water", "seasonal_water", "sign")]
-    res = run(a, _opts(month, max_walk_miles, wind_from_deg, n_candidates, worn_trails), log=log)
+    res = run(a, _opts(month, max_walk_miles, wind_from_deg, n_candidates, fast), log=log)
     return dict(
         summary=res["summary"],
         candidates=_strip(res["candidates"]),
@@ -535,12 +535,12 @@ def find_hotspots(
     bbox: list[float] | None = None,
     wind_from_deg: float | None = None,
     log: Log = print,
-    worn_trails: bool = False,
+    fast: bool = False,
 ) -> JSON:
     """The one-call answer to "find cougar hotspots near X": scout the region, analyze the best blocks in detail,
     merge into one ranked list and one Google Earth file. A small radius (<= 4 km), a KML area or a bbox
     [west, south, east, north] is analyzed directly, without scouting. wind_from_deg overrides the prevailing wind
-    (degrees it blows FROM). worn_trails=True adds worn trails from 1 m lidar (see analyze_area)."""
+    (degrees it blows FROM). fast=True skips the slow extras (see analyze_area)."""
     if kml or bbox or (location and radius_km is not None and radius_km <= 4):
         r = analyze_area(
             location,
@@ -552,7 +552,7 @@ def find_hotspots(
             max_walk_miles,
             wind_from_deg,
             log=log,
-            worn_trails=worn_trails,
+            fast=fast,
         )
         r["how"] = "analyzed the whole area in detail"
         return r
@@ -571,7 +571,7 @@ def find_hotspots(
     runs = []
     # Download every block's data at once (network-bound on a first run); analyze each as its data arrives.
     with ThreadPoolExecutor(len(picks)) as ex:
-        opts = _opts(month, max_walk_miles, n_candidates=8, worn_trails=worn_trails)
+        opts = _opts(month, max_walk_miles, n_candidates=8, fast=fast)
         fetched: list[Future[None]] = [
             ex.submit(context.prefetch, resolve_area(bbox=b["bbox"]), opts, lambda *_: None) for b in picks
         ]
@@ -587,7 +587,7 @@ def find_hotspots(
                 n_candidates=8,
                 area_name=f"{sc['location'].split(',')[0]} block {i}",
                 log=log,
-                worn_trails=worn_trails,
+                fast=fast,
             )
             runs.append((b, r))
 

@@ -68,7 +68,7 @@ Field log ──< Camera deployment | Snow track | Transect
   unrecorded. A field call, not a map one; cameras are compared like with like by placement. *Not* the Trail
   alternate, which is a different spot on a mapped line.
 - **Worn trail** — a trail tread found in 1 m bare-earth lidar (a game trail, cattle trail or old two-track),
-  mapped or not; opt-in (`worn_trails`). A **Worn-trail hint** (`worn_trail`) names the nearest one on no map
+  mapped or not; on unless the run is fast (`--fast`). A **Worn-trail hint** (`worn_trail`) names the nearest one on no map
   within 30 m of a Spot, as where to face the camera. It changes no score and never moves the Spot.
 
 ## Examples / canonical dialogues

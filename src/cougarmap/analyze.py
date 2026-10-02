@@ -748,7 +748,9 @@ def worn_summary(st: ModelState, cands: list[Spot]) -> dict[str, Any]:
     """The worn-trail layer in the summary: whether it was computed, and how much it found."""
     lines = st.layers["worn_lines"]
     if not st.opts.worn_trails:
-        return dict(on=False, how="worn_trails=True (CLI: --worn-trails) adds worn trails from 1 m lidar")
+        return dict(
+            on=False, how="off in a fast run (fast=True, CLI --fast); a normal run adds worn trails from 1 m lidar"
+        )
     km = sum(ln["length_m"] for ln in lines) / 1000
     return dict(
         on=True,
