@@ -44,7 +44,8 @@ Field log ──< Camera deployment | Snow track | Transect
 
 ## Vocabulary that matters
 
-- **Pinch point** — terrain that funnels travel: saddles, cliff bases, banks, fences. *Not* a road chokepoint.
+- **Pinch point** — terrain that funnels travel: saddles, cliff bases, banks, fences, and the gap between a pond or
+  lake and another barrier (or a pond's inlet and outlet). *Not* a road chokepoint.
 - **Limited water** — water that is scarce nearby (springs, seeps, seasonal water, ponds < 5 ha); counts more when
   it is the only water within a mile. *Not* rivers or big lakes.
 - **Edge** — the hunting edge: timber cover within ~35 m of an opening, plus the opening's rim; best at the most

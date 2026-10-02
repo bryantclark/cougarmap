@@ -18,10 +18,11 @@ from rasterio.enums import Resampling
 from scipy import ndimage, signal
 from shapely.geometry import LineString, MultiLineString, MultiPolygon, Point, Polygon
 from shapely.geometry.base import BaseGeometry
+from shapely.strtree import STRtree
 
 from . import terrain as T
 from .arrays import Floats, Ints, Mask
-from .config import MILE_M, PLACEMENT, WATER, WINTER, WORN, EdgeBand, Winter
+from .config import MILE_M, PLACEMENT, WATER, WATER_PINCH, WINTER, WORN, EdgeBand, WaterPinch, Winter
 from .context import Context, Log
 from .corridor import funnel_score
 from .grid import Grid
@@ -51,6 +52,8 @@ __all__ = [
     "compute_worn_trails",
     "daytime_wind_deg",
     "drain_strength",
+    "water_pinch",
+    "water_squeeze",
     "wind_terms",
 ]
 
@@ -108,7 +111,7 @@ def compute_terrain(ctx: Context, log: Log = print) -> None:
     A["slope_mid"] = T.slope_deg(ctx.z_mid, rm)
     A["landform_mid"] = T.geomorphons(ctx.z_mid, rm, search_m=250)
     z20 = T.smooth(ctx.z_mid, 20, rm)
-    A["acc_mid"] = T.flow_accumulation(z20, rm)
+    A["d8_rec_mid"], A["acc_mid"] = T.d8_flow(z20, rm)
     A["sca_mid"] = T.specific_catchment(z20, rm)
     A["tpi_mid"] = T.tpi(ctx.z_mid, 400, rm)
 
@@ -398,12 +401,16 @@ def _is_lake(p: Props) -> bool:
     return ft in (390, 436) or p.get("fcode") in (39000, 39004, 39009, 39010, 39011, 39012, 43600, 43601)
 
 
+def _lake_polys(ctx: Context, min_ha: float) -> list[BaseGeometry]:
+    """Lakes, ponds and reservoirs (NHD) of at least min_ha, projected."""
+    return [g for g in _polys(ctx.water["waterbodies"], _is_lake) if g.area >= min_ha * 1e4]
+
+
 def _lake_mask(ctx: Context, grid: Grid, min_ha: float = 0.5) -> Mask:
     """Lakes and reservoirs of at least min_ha on the grid (computed once per run; read-only)."""
 
     def build() -> Mask:
-        polys = [g for g in _polys(ctx.water["waterbodies"], _is_lake) if g.area >= min_ha * 1e4]
-        return grid.mask(polys, all_touched=False)
+        return grid.mask(_lake_polys(ctx, min_ha), all_touched=False)
 
     return ctx.memo(("lake", grid, min_ha), build)
 
@@ -418,7 +425,8 @@ def _perennial_mask(ctx: Context, grid: Grid) -> Mask:
 
 
 # ======================================================================================================
-# 3. Topographic pinch points: saddles, cliff bases, water banks, fences, and movement funnels
+# 3. Topographic pinch points: saddles, cliff bases, water banks, fences, movement funnels, and the squeeze
+#    between ponds and the barriers across from them
 # ======================================================================================================
 
 
@@ -466,6 +474,145 @@ def _funnels(ctx: Context, cliff: Mask, lakes: Mask) -> Floats:
     return funnel
 
 
+# pinch_water_kind: what a pond or lake squeezes travel against there (0 = no water pinch)
+WATER_PINCH_CLIFF, WATER_PINCH_STEEP, WATER_PINCH_OPENING, WATER_PINCH_POND, WATER_PINCH_END = range(1, 6)
+
+
+def water_squeeze(water: Mask, barrier: Ints, res: float, cfg: WaterPinch = WATER_PINCH) -> tuple[Floats, Ints]:
+    """The squeeze between water and another barrier: land within cfg.shore_m of the water whose nearest other
+    barrier lies across from the water (cosine of the angle between the two directions <= cfg.max_cos), by the
+    width of the gap (shore distance + barrier distance): cfg.strength up to cfg.gap_full_m, 0 from cfg.gap_zero_m.
+    barrier: a kind code per cell (WATER_PINCH_CLIFF/STEEP/OPENING, 0 = none); other water bodies (8-connected
+    components of `water`) are barriers too (WATER_PINCH_POND). Barrier cells within cfg.skip_m of the water are
+    its own bank and do not count; barrier cells themselves get 0. Returns the value and the kind of the barrier
+    across (int8, 0 where the value is 0)."""
+    val = np.zeros(water.shape, "float32")
+    kind = np.zeros(water.shape, np.int8)
+    if not water.any():
+        return val, kind
+    d_water, (wr, wc) = T.edt_nearest(water, res)
+    B = (barrier > 0) & (d_water > cfg.skip_m)
+    rr, cc = np.nonzero(~water & (d_water <= cfg.shore_m))
+    if not len(rr):
+        return val, kind
+    # the nearest barrier: on land first ...
+    best_d = np.full(len(rr), np.inf)
+    best_r, best_c = np.zeros(len(rr)), np.zeros(len(rr))
+    best_k = np.zeros(len(rr), np.int8)
+    if B.any():
+        d_b, (br, bc) = T.edt_nearest(B, res)
+        best_d = d_b[rr, cc]
+        best_r, best_c = br[rr, cc].astype(np.float64), bc[rr, cc].astype(np.float64)
+        best_k = barrier[br[rr, cc], bc[rr, cc]].astype(np.int8)
+    # ... then another water body, per body in a window around it (exact: water farther than the window only
+    # ever gives a gap of at least gap_zero_m)
+    lab, _ = ndimage.label(water, structure=np.ones((3, 3), bool))
+    near = lab[wr[rr, cc], wc[rr, cc]]
+    boxes = ndimage.find_objects(lab)
+    pad = math.ceil((cfg.gap_zero_m + cfg.shore_m) / res) + 1
+    H, W = water.shape
+    order = np.argsort(near, kind="stable")
+    labels, starts = np.unique(near[order], return_index=True)
+    for li, sel in zip(labels, np.split(order, starts[1:]), strict=True):
+        sl = boxes[li - 1]
+        if sl is None:
+            continue
+        r0, r1 = max(sl[0].start - pad, 0), min(sl[0].stop + pad, H)
+        c0, c1 = max(sl[1].start - pad, 0), min(sl[1].stop + pad, W)
+        win = lab[r0:r1, c0:c1]
+        other = (win > 0) & (win != li)
+        if not other.any():
+            continue
+        d_o, (orr, occ) = T.edt_nearest(other, res)
+        lr, lc = rr[sel] - r0, cc[sel] - c0
+        d = d_o[lr, lc]
+        upd = d < best_d[sel]
+        s2 = sel[upd]
+        best_d[s2] = d[upd]
+        best_r[s2] = orr[lr[upd], lc[upd]] + r0
+        best_c[s2] = occ[lr[upd], lc[upd]] + c0
+        best_k[s2] = WATER_PINCH_POND
+    # across: the directions to the water and to the barrier point (nearly) opposite ways
+    vwr, vwc = (wr[rr, cc] - rr).astype(np.float64), (wc[rr, cc] - cc).astype(np.float64)
+    vbr, vbc = best_r - rr, best_c - cc
+    nb = np.hypot(vbr, vbc)
+    cos = (vwr * vbr + vwc * vbc) / np.maximum(np.hypot(vwr, vwc) * nb, 1e-9)
+    gap = d_water[rr, cc] + best_d
+    ok = (cos <= cfg.max_cos) & np.isfinite(best_d) & (nb > 0)
+    v = cfg.strength * np.clip((cfg.gap_zero_m - gap) / (cfg.gap_zero_m - cfg.gap_full_m), 0, 1) * ok
+    val[rr, cc] = v
+    kind[rr, cc] = np.where(v > 0, best_k, 0)
+    val[B] = 0
+    kind[B] = 0
+    return val, kind
+
+
+def _points_of(geom: BaseGeometry) -> list[Point]:
+    """The points where a line meets a shore (a piece of line running along it: its two ends)."""
+    if geom.is_empty:
+        return []
+    if isinstance(geom, Point):
+        return [geom]
+    if isinstance(geom, LineString):
+        return [Point(geom.coords[0]), Point(geom.coords[-1])]
+    return [p for part in getattr(geom, "geoms", ()) for p in _points_of(part)]
+
+
+def _mid_cells_on_fine(ctx: Context, m_mid: Mask) -> Mask:
+    """The fine cells holding the centres of the marked mid-grid cells."""
+    out = np.zeros(ctx.fine.shape, bool)
+    r, c = np.nonzero(m_mid)
+    rr, cc = ctx.fine.rowcol(*ctx.mid.xy(r, c))
+    ok = ctx.fine.contains_rc(rr, cc)
+    out[rr[ok], cc[ok]] = True
+    return out
+
+
+def _pond_ends(ctx: Context, cfg: WaterPinch = WATER_PINCH) -> Mask:
+    """Where streams come into or go out of the ponds under cfg.end_max_ha (fine grid): NHD flowlines crossing
+    the shore, and D8 channels draining at least cfg.channel_min_m2 that cross it (10 m grid)."""
+    A, g = ctx.layers, ctx.fine
+    small = [p for p in _lake_polys(ctx, cfg.min_ha) if p.area < cfg.end_max_ha * 1e4]
+    ends = np.zeros(g.shape, bool)
+    if not small:
+        return ends
+    lines = _lines(ctx.water["flowlines"])
+    if lines:
+        tree = STRtree(lines)
+        pts = [q for p in small for k in tree.query(p) for q in _points_of(lines[k].intersection(p.boundary))]
+        if pts:
+            rr, cc = g.rowcol([q.x for q in pts], [q.y for q in pts])
+            ok = g.contains_rc(rr, cc)
+            ends[rr[ok], cc[ok]] = True
+    pond_mid = np.nan_to_num(ctx.mid.resample_from(g.mask(small, all_touched=False), g, Resampling.average)) >= 0.5
+    inside = pond_mid.ravel()
+    rec = A["d8_rec_mid"]
+    i = np.nonzero((A["acc_mid"].ravel() >= cfg.channel_min_m2) & (rec >= 0))[0]
+    j = rec[i]
+    m = np.zeros(inside.size, bool)
+    m[i[~inside[i] & inside[j]]] = True  # inlets: the last channel cell above the pond
+    m[j[inside[i] & ~inside[j]]] = True  # outlets: the first channel cell below it
+    return ends | _mid_cells_on_fine(ctx, m.reshape(ctx.mid.shape))
+
+
+def water_pinch(ctx: Context, cliff: Mask, cfg: WaterPinch = WATER_PINCH) -> tuple[Floats, Ints]:
+    """Ponds and lakes as barriers (config.WaterPinch): the squeeze against cliffs, steep ground, openings and
+    other water, and the ends of small ponds, max-combined. Returns the component and its kind
+    (WATER_PINCH_*, 0 = none). Needs compute_edges' openings and compute_terrain's D8 channels."""
+    A, r = ctx.layers, ctx.fine.res
+    water = _lake_mask(ctx, ctx.fine, cfg.min_ha)
+    z = T.smooth(np.asarray(ctx.z, np.float64), cfg.steep_smooth_m, r)
+    steep = T.binary_opening(T.slope_deg(z, r) >= cfg.steep_deg, cfg.steep_open_cells)
+    barrier = np.zeros(water.shape, np.int8)
+    barrier[A["meadow"]] = WATER_PINCH_OPENING
+    barrier[steep] = WATER_PINCH_STEEP
+    barrier[cliff] = WATER_PINCH_CLIFF
+    squeeze, kind = water_squeeze(water, barrier, r, cfg)
+    ends = cfg.strength * _soft(_pond_ends(ctx, cfg), cfg.end_reach_m, r, exclude=water)
+    kind[(ends > 0) & (ends >= squeeze)] = WATER_PINCH_END
+    return np.maximum(squeeze, ends).astype("float32"), kind
+
+
 def _is_barrier(p: Props) -> bool:
     return p.get("barrier") in ("fence", "wall") or bool(p.get("railway")) or p.get("man_made") == "pipeline"
 
@@ -487,13 +634,15 @@ def compute_pinch(ctx: Context, log: Log = print) -> None:
     bank = np.maximum(0.7 * _soft(lakes, 30, r, exclude=lakes), 0.45 * _soft(peren, 25, r, exclude=peren))
     fence = 0.35 * _soft(ctx.fine.mask([f.xy for f in ctx.osm if _is_barrier(f.props)]), 12, r)
     funnel = _funnels(ctx, cm, lakes)
+    water, A["pinch_water_kind"] = water_pinch(ctx, cm)
 
-    stack = np.stack([saddle, base, 0.4 * top, bank, fence, funnel])
+    stack = np.stack([saddle, base, 0.4 * top, bank, fence, funnel, water])
     pinch = np.clip(stack.max(0) + 0.1 * np.maximum((stack > 0.3).sum(0) - 1, 0), 0, 1)
     A["pinch"] = pinch.astype("float32")
     A["pinch_saddle"], A["pinch_cliffbase"] = saddle.astype("float32"), base.astype("float32")
     A["pinch_clifftop"], A["pinch_bank"] = (0.4 * top).astype("float32"), bank.astype("float32")
     A["pinch_fence"], A["pinch_funnel"] = fence.astype("float32"), funnel.astype("float32")
+    A["pinch_water"] = water
 
 
 # ======================================================================================================

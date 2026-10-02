@@ -197,6 +197,7 @@ def test_cliff_base_bank_and_fence() -> None:
     lake = toys.feature(g, box(x0 + 10 * RES, y0 - 140 * RES, x0 + 40 * RES, y0 - 110 * RES), ftype=390)
     water = Water(points=[], flowlines=[], waterbodies=[lake])
     ctx = toys.context(z, osm=[fence], water=water)
+    ctx.layers["meadow"] = np.zeros(z.shape, bool)  # no openings (compute_edges)
     run(ctx, "terrain", "pinch")
     A = ctx.layers
     assert A["cliff"][:, 99:101].any()
@@ -212,11 +213,67 @@ def test_saddle_is_painted_and_listed() -> None:
     x, y = (x - 100) * 10, -(y - 100) * 10
     z = (200 - 0.4 * np.abs(x) + 40 * (1 - np.exp(-(y**2) / (2 * 300**2)))).astype("float32")
     ctx = toys.context(z, res=10.0)
+    ctx.layers["meadow"] = np.zeros(z.shape, bool)
     run(ctx, "terrain", "pinch")
     sp = ctx.layers["saddle_points"]
     assert sp and {"x", "y", "rise_m"} <= set(sp[0])
     best = max(sp, key=lambda s: s["rise_m"])
     assert ctx.layers["pinch_saddle"][best["row"], best["col"]] >= 0.25
+
+
+def pond_pinch_ctx() -> Context:
+    """A 2.5 ha pond (cols 80-104, rows 80-119) between an opening to the west (cols 40-69) and a 39 degree slope
+    rising from col 112, with a seasonal creek coming in from the north; the ground tilts gently south."""
+    n = 200
+    rows = np.arange(n, dtype="float32")[:, None]
+    cols = np.arange(n, dtype="float32")[None, :]
+    z = (0.02 * rows + np.clip(cols - 112, 0, None) * 4.0).astype("float32")
+    g = toys.grid(n)
+    x0, y0 = g.xy(0, 0)
+    h = RES / 2
+    pond = toys.feature(g, box(x0 + 80 * RES - h, y0 - 120 * RES + h, x0 + 105 * RES - h, y0 - 80 * RES + h), ftype=390)
+    creek = toys.feature(g, LineString([(x0 + 92 * RES, y0 - 20 * RES), (x0 + 92 * RES, y0 - 100 * RES)]), fcode=46003)
+    ctx = toys.context(z, water=Water(points=[], flowlines=[creek], waterbodies=[pond]))
+    meadow = np.zeros((n, n), bool)
+    meadow[60:140, 40:70] = True
+    ctx.layers["meadow"] = meadow
+    return run(ctx, "terrain", "pinch")
+
+
+def test_a_pond_between_a_slope_and_an_opening_is_a_pinch() -> None:
+    A = pond_pinch_ctx().layers
+    pw, kind = A["pinch_water"], A["pinch_water_kind"]
+    # the 35-45 m strip between the shore and the foot of the slope: nearly full strength
+    assert pw[100, 108] == pytest.approx(0.8 * (100 - 50) / 60, abs=0.15) and kind[100, 108] == F.WATER_PINCH_STEEP
+    # the 50 m gap to the opening: 0.8 x (100 - 55) / 60 at its middle
+    assert pw[100, 75] == pytest.approx(0.6, abs=0.01) and kind[100, 75] == F.WATER_PINCH_OPENING
+    assert pw[100, 90] == 0 and pw[100, 60] == 0  # not on the water, not in the opening itself
+    assert pw[74, 84] == 0  # beside the pond with the opening off to the side, not across: no squeeze
+    assert pw[78, 92] > 0.5 and kind[78, 92] == F.WATER_PINCH_END  # where the creek comes in
+    assert pw[30, 92] == 0  # the creek far from the pond is no pinch
+    assert A["pinch"][100, 108] >= pw[100, 108] + 0.1  # beside the bank too: the extra-component bonus
+
+
+def test_water_squeeze_needs_the_barrier_across_and_a_narrow_gap() -> None:
+    n = 100
+    water = np.zeros((n, n), bool)
+    water[:, 40:50] = True  # a long pond, shore at col 50 (east) and col 39 (west)
+    barrier = np.zeros((n, n), np.int8)
+    barrier[:50, 57:] = F.WATER_PINCH_CLIFF  # north half: a cliff 35 m east of the shore
+    barrier[50:75, 61:] = F.WATER_PINCH_CLIFF  # then 55 m east
+    barrier[75:, 70:] = F.WATER_PINCH_CLIFF  # then 100 m east
+    v, kind = F.water_squeeze(water, barrier, 5.0)
+    assert v[25, 52] == pytest.approx(0.8) and kind[25, 52] == F.WATER_PINCH_CLIFF  # gap 40 m: full
+    assert v[25, 55] == pytest.approx(0.8)  # the gap is the same across the strip
+    assert v[60, 52] == pytest.approx(0.8 * (100 - 60) / 60, abs=0.01)  # gap 60 m
+    assert v[90, 52] == 0 and kind[90, 52] == 0  # gap 105 m
+    assert not v[:, :40].any()  # west shore: the cliff is on the same side as the water, not across
+    assert v[25, 58] == 0  # the cliff itself
+    two = np.zeros((n, n), bool)
+    two[:, 20:30], two[:, 42:52] = True, True  # two ponds 60 m apart
+    v2, k2 = F.water_squeeze(two, np.zeros((n, n), np.int8), 5.0)
+    assert v2[50, 35] == pytest.approx(0.8 * (100 - 65) / 60, abs=0.01) and k2[50, 35] == F.WATER_PINCH_POND
+    assert not F.water_squeeze(np.zeros((n, n), bool), barrier, 5.0)[0].any()
 
 
 # ---- water --------------------------------------------------------------------------------------------------

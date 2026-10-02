@@ -18,6 +18,7 @@ didn't work. The current model is described in [../HOW_IT_WORKS.md](../HOW_IT_WO
 | 10 | [Every house costs a little](10-house-cost.md) | 2026-10-02 | x(1 + houses within 500 m)^-0.34: camera concordance +0.010 out of region, day beds up in 12/12 collar groups, median 43.5% -> 36.1% |
 | 11 | [Worn trails from 1 m lidar](11-worn-trails.md) | 2026-10-02 | Finds 58% of mapped tracks, mostly lines on no map; human picks sit near them, but as a score factor it doesn't help: a hint and a layer, off by default |
 | 12 | [Reshaped factors, prey and tuning](12-reshape-prey-tuning.md) | 2026-10-02 | Factor reshapes (ruggedness, rock cover, incised draws, local-relative), a prey layer and 30-parameter cross-validated tuning: nothing passed held-out checks; lions don't track deer traffic within arrays |
+| 13 | [Ponds as barriers, and confluences](13-water-barriers.md) | 2026-10-02 | Ideas from blind LLM picking agents: stream confluences cost a little; ponds and lakes as pinch barriers are neutral everywhere (median 36.1% -> 36.3%, GPS unchanged) and ship as the owner's realism call |
 
 ## How we experiment
 

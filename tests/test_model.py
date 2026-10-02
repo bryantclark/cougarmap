@@ -473,6 +473,16 @@ def test_pinch_water_and_people_reasons() -> None:
     assert "120 m from a trailhead/campground/parking area: people (score reduced)" in r
 
 
+def test_water_pinch_reason_only_where_the_water_makes_the_pinch() -> None:
+    st = toy()
+    r = _reasons(st, pinch_water=0.7, pinch_water_kind=F.WATER_PINCH_STEEP)
+    assert "between a pond/lake and the slope - animals skirting the water pass through the gap" in r
+    end = _reasons(toy(), pinch_water=0.5, pinch_water_kind=F.WATER_PINCH_END)
+    assert any(s.startswith("at a pond's inlet or outlet") for s in end)
+    assert not any("pond" in s for s in _reasons(toy(), pinch_water=0.5, pinch_bank=0.7))  # the bank is the pinch
+    assert not any("pond" in s for s in _reasons(toy(), pinch_water=0.1, pinch_water_kind=F.WATER_PINCH_STEEP))
+
+
 def test_a_few_houses_get_their_own_reason() -> None:
     st = toy()
     r = _reasons(st, houses=3)

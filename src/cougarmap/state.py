@@ -43,7 +43,8 @@ if TYPE_CHECKING:
 # 5: recreation sites (rec_dist); ridge-spine crossing gates; downwind ends per air current; the winter module;
 #    quiet roads/trails (placement suggestions).
 # 6: worn trails from 1 m lidar (empty unless Options.worn_trails).
-STATE_VERSION: Final = 6
+# 7: ponds and lakes as pinch barriers (pinch_water, pinch_water_kind).
+STATE_VERSION: Final = 7
 
 PAVED_DIST_CAP_M: Final = 2000.0  # paved-road distances are stored up to this (well past the penalty's reach)
 
@@ -69,6 +70,7 @@ class Layers(TypedDict, total=False):
     slope_mid: Floats
     landform_mid: Annotated[Ints, Store.EXACT]  # geomorphon class (terrain.LANDFORM_NAMES)
     acc_mid: Floats  # upslope contributing area, m2 (single flow path)
+    d8_rec_mid: Ints  # that flow path: each cell's D8 receiver (flat mid-grid cell index, -1 = none)
     sca_mid: Floats  # upslope area per metre of contour width, m2/m (multiple flow directions)
     tpi_mid: Floats  # topographic position (m above the surrounding mean)
     cliff: Annotated[Mask, Store.EXACT]
@@ -122,6 +124,8 @@ class Layers(TypedDict, total=False):
     pinch_bank: Annotated[Floats, Store.HALF]
     pinch_fence: Annotated[Floats, Store.HALF]
     pinch_funnel: Annotated[Floats, Store.HALF]
+    pinch_water: Annotated[Floats, Store.HALF]  # ponds and lakes as barriers: the squeeze beside them, their ends
+    pinch_water_kind: Annotated[Ints, Store.EXACT]  # what the water squeezes against (factors.WATER_PINCH_*)
     saddle_points: Annotated[list[SaddlePoint], Store.EXACT]
     # limited water
     water: Annotated[Floats, Store.HALF]
@@ -350,6 +354,9 @@ def migrate(tree: dict[str, Any]) -> ModelState:
     # not modeled before version 6: no worn trails
     fill("worn_lines", list, True)
     fill("worn_unmapped", lambda: np.zeros(fine.shape, bool), True)
+    # not modeled before version 7: no water pinch (the saved pinch is the one computed without it)
+    fill("pinch_water", lambda: np.zeros(fine.shape, np.float32), True)
+    fill("pinch_water_kind", lambda: np.zeros(fine.shape, np.int8), True)
 
     layers = cast("Layers", {k: v for k, v in raw.items() if k in SAVED})  # layers dropped since are ignored
     opts = _rebuild(Options, slim["opts"])

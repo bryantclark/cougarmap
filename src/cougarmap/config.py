@@ -117,6 +117,37 @@ WATER = WaterRules()
 
 
 @dataclass(frozen=True)
+class WaterPinch:
+    """Ponds and lakes as barriers animals walk around (factors.water_pinch, the pinch_water component). Two
+    parts, max-combined: the squeeze, land beside a shore with another barrier (a cliff, ground too steep to
+    travel, an opening, another pond) on its far side, strongest where the gap between them is narrow; and the
+    ends of small ponds, where a stream comes in or goes out (the crossing between the pond and the draw).
+    Every value was fixed before it was measured, and it is neutral on every benchmark: it ships as the owner's
+    realism call (docs/experiments/13-water-barriers.md)."""
+
+    min_ha: float = 0.02  # NHD lakes, ponds and reservoirs (ftype 390/436) at least this big are barriers
+    # the squeeze: land within shore_m of the water whose nearest other barrier lies across it (the directions to
+    # the water and to that barrier at least this far apart: cosine <= max_cos)
+    shore_m: float = 45.0
+    max_cos: float = -0.3
+    steep_deg: float = 35.0  # ground this steep (on the DEM smoothed steep_smooth_m) is a barrier ...
+    steep_smooth_m: float = 6.0
+    steep_open_cells: int = 2  # ... in patches surviving an opening this many cells wide (no single cells)
+    skip_m: float = 9.0  # barrier cells this close to the shore are the bank itself, not a barrier across from it
+    gap_full_m: float = 40.0  # the gap (shore distance + barrier distance): full strength up to this ...
+    gap_zero_m: float = 100.0  # ... none from this
+    strength: float = 0.8
+    # the ends of ponds under end_max_ha: NHD flowlines crossing the shore and D8 channels of at least
+    # channel_min_m2 entering or leaving the pond, fading out end_reach_m away
+    end_max_ha: float = 5.0
+    channel_min_m2: float = 20_000.0
+    end_reach_m: float = 45.0
+
+
+WATER_PINCH = WaterPinch()
+
+
+@dataclass(frozen=True)
 class Winter:
     """The winter module (factors.compute_season): in winter, a multiplier on the habitat around a spot (never the
     spot itself) for where deer winter and lions follow them: low ground (Cooley et al. 2008: winter kills ~180 m
