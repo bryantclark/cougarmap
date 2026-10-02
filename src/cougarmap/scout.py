@@ -6,7 +6,7 @@ detailed look. It uses the same ideas as the full model but at 30 m and with reg
 - wind: cold-air drainage aligned with the prevailing wind
 - water: wetness from land shape
 - access: share of the block within walking distance of a public road (straight line at this scale)
-- land: share that is open-access public land (when public_only)
+- land: share that is open-access public land
 - people: penalty for dense road networks (towns, subdivisions)
 - prior: iNaturalist cougar observations nearby (locations are blurred for privacy; used only as a weak prior)
 """
@@ -238,7 +238,7 @@ def _p97(a: Floats, axis: tuple[int, int]) -> Floats:
     return out
 
 
-def _blocks(c: Cells, res: float, block_km: float, public_only: bool) -> Blocks:
+def _blocks(c: Cells, res: float, block_km: float) -> Blocks:
     B = max(2, round(block_km * 1000 / res))
     H, W = c.inside.shape
     nby, nbx = H // B, W // B
@@ -263,8 +263,7 @@ def _blocks(c: Cells, res: float, block_km: float, public_only: bool) -> Blocks:
     edges = 0.6 * f_edge + 0.4 * np.clip(f_mix, 0, 1)
     score = 0.30 * terrain + 0.25 * edges + 0.20 * f_conv + 0.10 * f_wet + 0.15 * f_prior
     score *= (1 - 0.8 * f_dev) * np.clip(f_reach / 0.4, 0, 1)
-    if public_only:
-        score *= np.clip(f_pub / 0.5, 0, 1)
+    score *= np.clip(f_pub / 0.5, 0, 1)
     score *= f_in > 0.6
     return Blocks(
         B=B,
@@ -362,7 +361,6 @@ def scout(
     lon: float,
     radius_km: float = 40.0,
     month: int | None = None,
-    public_only: bool = True,
     max_walk_miles: float = 1.0,
     block_km: float = 3.0,
     top: int = 8,
@@ -378,14 +376,13 @@ def scout(
     log("  elevation, canopy, roads, public land, wind, cougar sightings (in parallel)...")
     inp = _fetch(g, lat, lon, month)
     cells, names = _cells(g, inp, region, max_walk_miles)
-    b = _blocks(cells, res, block_km, public_only)
+    b = _blocks(cells, res, block_km)
     picked = _pick(b.score, top)
     blocks = [_block(g, b, cells, names, k, at, block_km, inp.wind) for k, at in enumerate(picked, 1)]
     return dict(
         center=dict(lat=lat, lon=lon),
         radius_km=radius_km,
         month=month,
-        public_only=public_only,
         wind=weather.describe(inp.wind),
         cougar_observations=len(inp.cougars),
         blocks=blocks,

@@ -16,7 +16,7 @@ history is the journal.
 
 ## Access and land
 
-- [Public land only by default](decisions/2026-09-29-public-land-default.md) — private land is still analyzed and returned as separate private candidates
+- [Ranked spots are public land; private land is a separate list](decisions/2026-09-29-public-land-default.md) — private land is still analyzed and returned as separate private candidates
 - [Within 1 mile of walking from an open road](decisions/2026-09-29-one-mile-open-road.md) — walking distance from roads open to vehicles that month
 
 ## Model and validation

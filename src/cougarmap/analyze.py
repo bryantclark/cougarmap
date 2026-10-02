@@ -176,14 +176,14 @@ def run(aoi: AOI, opts: Options | None = None, log: Log = print, out_dir: Path |
 
 
 def apply_masks(st: ModelState) -> None:
-    """Usable ground from the land/access rules. Both public and private ground are always kept, so switching
-    public_only (or showing the private-land layer) never needs a rerun.
-    usable/final: what the main spot list uses. usable_private/final_private: private ground, reached by any route."""
+    """Usable ground from the land/access rules. usable/final: the main spot list, open-access public land within
+    the walk limit along public-access routes. usable_private/final_private: private ground, reached by any route
+    (a separate list and hidden KMZ layers)."""
     A, o = st.layers, st.opts
     limit = o.max_walk_miles * MILE_M
     base = st.aoi_mask & ~A["cliff"] & (A["road_dist"] > 8) & ~A["lake"]
     pen = site_penalty(A, o)
-    usable = base & A["public"] & (A["walk_m"] <= limit) if o.public_only else base & (A["walk_any_m"] <= limit)
+    usable = base & A["public"] & (A["walk_m"] <= limit)
     priv = base & ~A["public"] & (A["walk_any_m"] <= limit)
     A["usable"], A["usable_private"] = usable, priv
     A["final"] = np.where(usable, A["score"] * pen, 0).astype("float32")
@@ -194,12 +194,10 @@ def apply_masks(st: ModelState) -> None:
 
 
 def pick_all(st: ModelState) -> tuple[list[Spot], list[Spot]]:
-    """Main spot list, plus private-land spots (a separate, hidden-by-default layer) when public_only."""
+    """The main (public-land) spot list, and the private-land spots (a separate, hidden-by-default layer)."""
     A = st.layers
     cands = pick_candidates(st, A["final"], st.opts, A["usable"])
-    priv = (
-        pick_candidates(st, A["final_private"], st.opts, A["usable_private"], prefix="P") if st.opts.public_only else []
-    )
+    priv = pick_candidates(st, A["final_private"], st.opts, A["usable_private"], prefix="P")
     return cands, priv
 
 
@@ -722,7 +720,6 @@ def summarize(st: ModelState, cands: list[Spot], runtime: float, private_cands: 
             "how steady prevailing_from is (R 0-1); ground_level (10 m) is shown for reference, not scored.",
         ),
         options=dict(
-            public_only=st.opts.public_only,
             max_walk_miles=st.opts.max_walk_miles,
             wind_override=st.opts.wind_from_deg,
         ),
@@ -739,9 +736,7 @@ def summarize(st: ModelState, cands: list[Spot], runtime: float, private_cands: 
             n_spots=len(private_cands),
             best_score=private_cands[0]["score"] if private_cands else 0,
             layer="hidden in the KMZ: 'Private land spots' folder and 'Lion score on private land' layer",
-        )
-        if st.opts.public_only
-        else None,
+        ),
         notes=[*st.notes, *pick_notes(cands, A["usable"])],
         runtime_s=round(runtime, 1),
     )

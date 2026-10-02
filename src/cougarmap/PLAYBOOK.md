@@ -49,12 +49,12 @@ the user asks or the public spots are weak; they need landowner permission.
 |---|---|
 | "find cougar hotspots near X", "where should I put cameras around X" | `find_hotspots(location="X")` |
 | "... within 10 miles of X" | `find_hotspots(location="X", radius_km=16)` |
-| "scan my property at LAT,LON", "include private land" | `find_hotspots(location="LAT,LON", radius_km=1.5, public_only=False)` |
+| "scan my property at LAT,LON", "include private land" | `find_hotspots(location="LAT,LON", radius_km=1.5)`, then report its `private_candidates` |
 | an area in their Google Earth file | `list_areas(kml)` then `find_hotspots(kml=..., area_name=...)` |
 | "use this KML" / gives a file path | `import_kml(path)` first, so their water/sign pins are used |
 | "why is spot #3 good?" | `explain_point(area, lat, lon)` |
 | "more spread out", "more spots", "within 2 miles" (same area) | `repick(area, ...)` (seconds, no re-download) |
-| "what about private land there?" (same area) | read `private_candidates` from the last result, or `repick(area, public_only=False)` to rank everything together |
+| "what about private land there?" (same area) | read `private_candidates` from the last result (no rerun) |
 | "what's the wind there in November?" | `wind_summary(location, month=11)` |
 | "I put a camera out at LAT,LON" | `log_camera(lat, lon, name, arm, zone, start, ...)` (see Field log below) |
 | "checked camera X: a cougar on Nov 3 at 5:40" | `log_check(deployment="X", events=[...])` |

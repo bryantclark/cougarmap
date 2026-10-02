@@ -31,8 +31,6 @@ def test_scout_ranks_blocks(offline_scout: None) -> None:
     assert len(set(centers)) == len(centers)
 
 
-def test_scout_private_land_allowed_scores_more_ground(offline_scout: None) -> None:
-    public = scout.scout(synthetic.LAT, synthetic.LON, 4, 10, True, block_km=1.0, top=20, log=lambda *_: None)
-    anyland = scout.scout(synthetic.LAT, synthetic.LON, 4, 10, False, block_km=1.0, top=20, log=lambda *_: None)
-    assert len(anyland["blocks"]) >= len(public["blocks"])
-    assert any(b["land"] == "mostly private" or b["public_fraction"] < 0.5 for b in anyland["blocks"])
+def test_scout_only_picks_blocks_with_public_land(offline_scout: None) -> None:
+    r = scout.scout(synthetic.LAT, synthetic.LON, 4, 10, block_km=1.0, top=20, log=lambda *_: None)
+    assert r["blocks"] and all(b["public_fraction"] > 0 for b in r["blocks"])

@@ -70,7 +70,6 @@ def hotspots(
     kml: str | None = typer.Option(None, help="Google Earth KML/KMZ with the area outline (instead of a place)"),
     area: str | None = typer.Option(None, help="the area's name inside --kml"),
     month: int | None = typer.Option(None, help="1-12 (default this month): wind, snow and open roads change"),
-    include_private: bool = typer.Option(False, help="also consider private land (e.g. your property)"),
     max_walk_miles: float = typer.Option(1.0, help="farthest walk from a road open that month"),
     blocks: int = typer.Option(3, help="how many ~3 km blocks to analyze in detail"),
     background: bool = typer.Option(False, help="start as a background job and print its id"),
@@ -86,16 +85,13 @@ def hotspots(
             kml=kml,
             area_name=area,
             month=month,
-            public_only=not include_private,
             max_walk_miles=max_walk_miles,
             blocks=blocks,
         )
         jid = jobs.start("hotspots", {k: v for k, v in params.items() if v is not None})
         _out(dict(job_id=jid, state="running", next=f"cougarmap job {jid} --wait 45"))
     else:
-        r = api.find_hotspots(
-            location, radius_km, kml, area, month, not include_private, max_walk_miles, blocks, log=_log
-        )
+        r = api.find_hotspots(location, radius_km, kml, area, month, max_walk_miles, blocks, log=_log)
         _out(r)
         _map(r, open_map)
 
@@ -163,7 +159,6 @@ def analyze(
     area: str | None = typer.Option(None, help="area name inside the KML"),
     bbox: str | None = typer.Option(None, help="west,south,east,north"),
     month: int | None = None,
-    include_private: bool = typer.Option(False, help="also consider private land (e.g. your own property)"),
     max_walk_miles: float = 1.0,
     wind_from: float | None = typer.Option(None, help="override prevailing wind, degrees it blows FROM"),
     n: int = typer.Option(15, help="number of camera spots"),
@@ -180,7 +175,6 @@ def analyze(
         area,
         bb,
         month,
-        not include_private,
         max_walk_miles,
         wind_from,
         n,
@@ -196,13 +190,12 @@ def scout(
     location: str = typer.Argument(..., help="place name or 'lat,lon'"),
     radius_km: float = 40.0,
     month: int | None = None,
-    include_private: bool = False,
     max_walk_miles: float = 1.0,
     top: int = 8,
 ) -> None:
     """Coarse screen of a region -> the best ~3 km blocks to analyze."""
     _note_fixes(location)
-    _out(api.scout_region(location, radius_km, month, not include_private, max_walk_miles, top, log=_log))
+    _out(api.scout_region(location, radius_km, month, max_walk_miles, top, log=_log))
 
 
 @app.command()
@@ -211,15 +204,10 @@ def repick(
     n: int = 15,
     per_zone: int = 3,
     spacing_m: float = 150.0,
-    include_private: bool | None = typer.Option(None, "--include-private/--public-only"),
     max_walk_miles: float | None = None,
 ) -> None:
     """Re-select spots from a saved analysis (more/fewer, more spread out, other walk limit) without recomputing."""
-    _out(
-        api.repick(
-            area, n, per_zone, spacing_m, None if include_private is None else not include_private, max_walk_miles
-        )
-    )
+    _out(api.repick(area, n, per_zone, spacing_m, max_walk_miles))
 
 
 @app.command()

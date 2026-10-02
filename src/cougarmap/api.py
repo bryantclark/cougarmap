@@ -36,14 +36,12 @@ JSON = dict[str, Any]  # what every operation returns
 
 def _opts(
     month: int | None = None,
-    public_only: bool = True,
     max_walk_miles: float = 1.0,
     wind_from_deg: float | None = None,
     n_candidates: int = 15,
 ) -> Options:
     return Options(
         month=month,
-        public_only=public_only,
         max_walk_miles=max_walk_miles,
         wind_from_deg=wind_from_deg,
         n_candidates=n_candidates,
@@ -103,7 +101,6 @@ def analyze_area(
     area_name: str | None = None,
     bbox: list[float] | None = None,
     month: int | None = None,
-    public_only: bool = True,
     max_walk_miles: float = 1.0,
     wind_from_deg: float | None = None,
     n_candidates: int = 15,
@@ -115,7 +112,7 @@ def analyze_area(
     a = resolve_area(location, radius_km, kml, area_name, bbox)
     known = _known_points(log) if user_pins else []
     a.user_points = [p for p in known if p["kind"] in ("water", "seasonal_water", "sign")]
-    res = run(a, _opts(month, public_only, max_walk_miles, wind_from_deg, n_candidates), log=log)
+    res = run(a, _opts(month, max_walk_miles, wind_from_deg, n_candidates), log=log)
     return dict(
         summary=res["summary"],
         candidates=_strip(res["candidates"]),
@@ -225,7 +222,7 @@ def _explain(st: ModelState, lat: float, lon: float, search_m: float) -> JSON:
     dr, dc = np.unravel_index(np.argmax(win), win.shape)
     br, bc = r0 + int(dr), c0 + int(dc)
 
-    def private_only(rr: int, cc: int) -> bool:  # private ground (when public_only) is on the private-land layer
+    def private_only(rr: int, cc: int) -> bool:  # private ground is on the private-land layer
         return bool(A["usable_private"][rr, cc] and not A["usable"][rr, cc])
 
     best = describe(st, br, bc, A["final_private"] if private_only(br, bc) else None)
@@ -487,7 +484,6 @@ def scout_region(
     location: str,
     radius_km: float = 40.0,
     month: int | None = None,
-    public_only: bool = True,
     max_walk_miles: float = 1.0,
     top: int = 8,
     log: Log = print,
@@ -495,7 +491,7 @@ def scout_region(
     from .scout import scout
 
     lat, lon, label = aoi_mod.parse_location(location)
-    r = scout(lat, lon, radius_km, month, public_only, max_walk_miles, top=top, log=log)
+    r = scout(lat, lon, radius_km, month, max_walk_miles, top=top, log=log)
     r["location"] = label
     return r
 
@@ -505,18 +501,14 @@ def repick(
     n_candidates: int = 15,
     per_zone: int = 3,
     spacing_m: float = 150.0,
-    public_only: bool | None = None,
     max_walk_miles: float | None = None,
 ) -> JSON:
     """Re-select camera spots from a saved analysis (e.g. more spread out, more spots) and rewrite the KMZ,
-    without recomputing. public_only/max_walk_miles re-apply the land and walk rules (both public-access and
-    any-route walks are saved, so switching to/from private land needs no rerun)."""
+    without recomputing. max_walk_miles re-applies the walk rule."""
     path = _state_for(area)
     with _STATES.use(path) as st:
         o = st.opts
         o.n_candidates, o.per_zone, o.candidate_spacing_m = n_candidates, per_zone, spacing_m
-        if public_only is not None:
-            o.public_only = public_only
         if max_walk_miles is not None:
             o.max_walk_miles = max_walk_miles
         apply_masks(st)
@@ -538,7 +530,6 @@ def find_hotspots(
     kml: str | None = None,
     area_name: str | None = None,
     month: int | None = None,
-    public_only: bool = True,
     max_walk_miles: float = 1.0,
     blocks: int = 3,
     log: Log = print,
@@ -546,25 +537,25 @@ def find_hotspots(
     """The one-call answer to "find cougar hotspots near X": scout the region, analyze the best blocks in detail,
     merge into one ranked list and one Google Earth file. Small radius (<= 4 km) or a KML area skips scouting."""
     if kml or (location and radius_km is not None and radius_km <= 4):
-        r = analyze_area(location, radius_km, kml, area_name, None, month, public_only, max_walk_miles, log=log)
+        r = analyze_area(location, radius_km, kml, area_name, None, month, max_walk_miles, log=log)
         r["how"] = "analyzed the whole area in detail"
         return r
     if not location:
         raise ValueError("give a location (place name or 'lat,lon') or a kml + area_name")
     radius_km = radius_km or 25.0
     log(f"scouting {radius_km:g} km around {location}...")
-    sc = scout_region(location, radius_km, month, public_only, max_walk_miles, top=max(blocks, 3), log=log)
+    sc = scout_region(location, radius_km, month, max_walk_miles, top=max(blocks, 3), log=log)
     picks = sc["blocks"][:blocks]
     if not picks:
         return dict(
             location=sc.get("location"),
-            error="no promising public, road-accessible blocks found; try a larger radius or public_only=False",
+            error="no promising public, road-accessible blocks found; try a larger radius",
             scout=sc,
         )
     runs = []
     # Download every block's data at once (network-bound on a first run); analyze each as its data arrives.
     with ThreadPoolExecutor(len(picks)) as ex:
-        opts = _opts(month, public_only, max_walk_miles, n_candidates=8)
+        opts = _opts(month, max_walk_miles, n_candidates=8)
         fetched: list[Future[None]] = [
             ex.submit(context.prefetch, resolve_area(bbox=b["bbox"]), opts, lambda *_: None) for b in picks
         ]
@@ -575,7 +566,6 @@ def find_hotspots(
             r = analyze_area(
                 bbox=b["bbox"],
                 month=month,
-                public_only=public_only,
                 max_walk_miles=max_walk_miles,
                 n_candidates=8,
                 area_name=f"{sc['location'].split(',')[0]} block {i}",
@@ -611,7 +601,6 @@ def find_hotspots(
         location=sc["location"],
         radius_km=radius_km,
         month=sc["month"],
-        public_only=public_only,
         max_walk_miles=max_walk_miles,
         wind=sc["wind"],
         blocks=[

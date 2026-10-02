@@ -4,7 +4,7 @@ CougarMap - find mountain lion hotspots with your AI assistant
 WHAT IT DOES
 Ask your AI assistant something like:
     "Find me the cougar hotspots near Missoula, MT"
-    "Scan my property at 47.3712, -116.1029 - include private land"
+    "Scan my property at 47.3712, -116.1029"
     "Look at the North Ridge area in my Google Earth file"
 It studies the terrain (wind, cold air drainage, edges, pinch points, water), picks the best
 trail-camera spots within a mile's walk of an open road, explains why each one is good, and makes
@@ -36,7 +36,8 @@ USING IT
     "Import my Google Earth file at <path to the .kml>"
   - Tell it what your cameras catch ("my camera at <lat, lon> got a lion on Oct 3"). That's how the
     model gets better.
-  - It uses public land only unless you say it's your property or say "include private land".
+  - The ranked spots are on public land. Spots on private land (like your property) are listed
+    separately and sit in a map layer that starts switched off.
 
 USING IT WITHOUT AN AI APP (Terminal)
 Open a new Terminal window (PowerShell on Windows) and type:

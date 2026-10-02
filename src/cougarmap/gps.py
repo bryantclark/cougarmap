@@ -392,7 +392,7 @@ def analyze_tiles(tiles: list[Tile], root: Path | None = None, cfg: Gps = GPS, l
             if (out / "state.pkl").exists():
                 continue
             log(f"== {t.name} month {month}")
-            run(t.aoi(), Options(month=month, public_only=False), log=log, out_dir=out)
+            run(t.aoi(), Options(month=month), log=log, out_dir=out)
             gc.collect()
 
 
