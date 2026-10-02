@@ -299,6 +299,72 @@ def append(records: list[Record], path: Path | None = None) -> int:
     return len(existing) + len(records)
 
 
+# ---- sharing a field log with someone you trust ------------------------------------------------------------
+
+SHARE_FORMAT: Final = "cougarmap-field-log"
+_ID_KEYS: Final = {
+    "deployment": ("id", "zone"),
+    "check": ("deployment",),
+    "event": ("deployment",),
+    "track": ("id",),
+    "transect": ("id", "route"),
+}
+
+
+def share_tag(name: str) -> str:
+    """A sender's name as the prefix their ids get on import: lowercase letters, digits and dashes."""
+    tag = "-".join("".join(c if c.isalnum() else " " for c in name.lower()).split())
+    if not tag:
+        raise ValueError("give a name for whose results these are (e.g. your first name)")
+    return tag
+
+
+def share(records: list[Record], shared_by: str, cougarmap: str) -> dict[str, Any]:
+    """The user's own records (none imported from someone else) as one shareable document. It holds camera
+    locations and tracks: it is for people the user trusts, sent privately."""
+    own = [r for r in records if "shared_by" not in r]
+    return dict(
+        format=SHARE_FORMAT,
+        v=SCHEMA_VERSION,
+        shared_by=share_tag(shared_by),
+        exported=_now(),
+        cougarmap=cougarmap,
+        records=own,
+    )
+
+
+def from_share(doc: dict[str, Any], tag: str | None = None) -> list[Record]:
+    """Records from a shared document, ready to add to this log: every id, zone and route is prefixed with the
+    sender's tag ("sam/M1"), so they never collide with the user's own, and each record carries shared_by."""
+    if doc.get("format") != SHARE_FORMAT or doc.get("v") != SCHEMA_VERSION:
+        raise ValueError("not a CougarMap shared field log (cougarmap share-results makes one)")
+    tag = share_tag(tag or str(doc.get("shared_by") or ""))
+    out: list[Record] = []
+    for rec in doc["records"]:
+        r = dict(rec)
+        for key in _ID_KEYS.get(r.get("type", ""), ()):
+            if r.get(key):
+                r[key] = f"{tag}/{r[key]}"
+        r["shared_by"] = tag
+        out.append(migrate(r, set())[0])
+    return out
+
+
+def replace_shared(tag: str, records: list[Record], path: Path | None = None) -> tuple[int, int]:
+    """Swap in a sender's records: the ones imported from them before are dropped (a newer file from the same
+    person replaces the older one). Rewrites the log atomically. Returns (records dropped, records in the log)."""
+    path = path or OBSERVATIONS_FILE
+    path.parent.mkdir(parents=True, exist_ok=True)
+    existing, old = _parse(path.read_text().splitlines()) if path.exists() else ([], False)
+    if old and not path.with_suffix(".v1.bak").exists():
+        shutil.copy2(path, path.with_suffix(".v1.bak"))  # as append does: keep the version-1 original once
+    keep = [r for r in existing if r.get("shared_by") != tag]
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text("".join(json.dumps(r) + "\n" for r in [*keep, *records]))
+    tmp.replace(path)
+    return len(existing) - len(keep), len(keep) + len(records)
+
+
 # ---- making records ---------------------------------------------------------------------------------------------
 
 

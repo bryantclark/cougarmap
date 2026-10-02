@@ -224,6 +224,14 @@ async def field_log() -> JSON:
 
 
 @server.tool(structured_output=False)
+async def share_results(name: str, out: str | None = None) -> JSON:
+    """Write the user's field log to one file to send to someone they trust (e.g. "send my results to Sam"), who
+    adds it with `cougarmap import-results`. name: whose results these are. The file holds camera locations: tell
+    the user to send it privately (email or a message), never to post it."""
+    return await _bg(api.share_results, name, out)
+
+
+@server.tool(structured_output=False)
 async def import_kml(path: str) -> JSON:
     """Copy the user's Google Earth KML/KMZ into CougarMap's private folder, so its water and sign pins are used,
     and list its named areas (for find_hotspots(kml=..., area_name=...)) and pins. Importing the same file again

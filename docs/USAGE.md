@@ -67,6 +67,8 @@ cougarmap log-track ~/Downloads/track.gpx --snow-age-h 20 --confidence certain
 cougarmap log-transect "Route 1" ~/Downloads/ridge.gpx     # waypoints named "lion" are crossings
 cougarmap field-log
 cougarmap validate my-area
+cougarmap share-results --name Sam                  # your log as one file, to send privately
+cougarmap import-results ~/Downloads/cougarmap-field-log-sam-2026-12-01.json   # add someone's to yours
 ```
 
 [FIELD_PROTOCOL.md](FIELD_PROTOCOL.md) explains what to record and why.

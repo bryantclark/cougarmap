@@ -318,6 +318,24 @@ def field_log_cmd() -> None:
     _out(api.field_log())
 
 
+@app.command("share-results")
+def share_results(
+    name: str = typer.Option(..., help="whose results these are, e.g. your first name"),
+    out: str | None = typer.Option(None, help="where to write the file (default: your private CougarMap folder)"),
+) -> None:
+    """Write your field log to one file for someone you trust (it has your camera locations: send it privately)."""
+    _out(api.share_results(name, out))
+
+
+@app.command("import-results")
+def import_results(
+    path: str = typer.Argument(..., help="a file from cougarmap share-results"),
+    name: str | None = typer.Option(None, help="file it under this name instead of the sender's"),
+) -> None:
+    """Add someone's shared field log to yours (a newer file from the same person replaces the older one)."""
+    _out(api.import_results(path, name))
+
+
 _NUMBER = re.compile(r"^-?\d+(?:\.\d+)?\s*°?[NSEWnsew]?,?$")
 _PLACE_COMMANDS = {"hotspots", "analyze"}
 

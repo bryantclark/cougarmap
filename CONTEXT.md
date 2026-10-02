@@ -29,6 +29,8 @@ and travel, tested against human camera picks, open GPS collar data, and real li
 - **Snow track** / **Transect** — lion truth from tracking: a followed track (GPX/KML), or a fixed route surveyed
   for lion crossings (zero crossings count).
 - **Field log** — `observations.jsonl` in the private folder; holds deployments, checks, tracks, transects.
+- **Shared field log** — someone's own field-log records as one file (`share-results`), added to another log with
+  `import-results` under the sender's name (`sam/M1`); a newer file from the same sender replaces the older one.
 - **Job** — a background run (analysis, hotspots) the agent polls with `job_status`.
 
 ## Relationships
