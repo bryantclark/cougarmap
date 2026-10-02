@@ -253,9 +253,6 @@ def test_walk_limit_and_private_land() -> None:
     assert not A["usable"][150, 50] and A["usable"][150, 150]
     assert not A["usable"][150, 250] and A["usable_private"][150, 250]
     assert A["final_private"][150, 150] == 0  # public ground is never on the private layer
-    st.opts.public_only = False  # private land in the main list: the any-route walk decides
-    apply_masks(st)
-    assert A["usable"][150, 250] and A["usable"][150, 50]
 
 
 def test_populated_areas_cut_the_score() -> None:
@@ -345,9 +342,6 @@ def test_pick_all_private_layer_and_summary() -> None:
     assert s["n_candidates"] == len(cands) and s["private_land"]["n_spots"] == len(priv)
     assert s["coverage"]["public_fraction"] == 0.5 and s["runtime_s"] == 1.2
     assert s["zones"][0]["best_rank"] == 1
-    st.opts.public_only = False
-    apply_masks(st)
-    assert pick_all(st)[1] == [] and summarize(st, [], 0, [])["private_land"] is None
 
 
 # ---- explaining a spot --------------------------------------------------------------------------------------

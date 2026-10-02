@@ -295,7 +295,7 @@ def test_analyze_tiles_runs_each_season_once(tmp_path: Path) -> None:
     with synthetic.offline():
         gps.analyze_tiles([tile], tmp_path, cfg, log=logs.append)
     st = load_state(tile.dir(10, tmp_path) / "state.pkl")
-    assert st.month == 10 and not st.opts.public_only
+    assert st.month == 10
     n = len(logs)
     gps.analyze_tiles([tile], tmp_path, cfg, log=logs.append)  # already analyzed: nothing to do
     assert len(logs) == n

@@ -3,10 +3,10 @@
 #
 #   ./scripts/rerun_eval.sh <areas.kml> "<Area name>" ["<Area name>" ...]
 #
-# Each area runs twice, at month 10 with private land allowed: as the tool runs it (out/<slug>, with the KML's
-# water/sign pins), and without those pins (out/no-pins/<slug>). When the person who chose the cameras also
-# placed the pins, the pin-free numbers are the honest ones. Large areas (200+ km2) peak at ~9 GB of RAM, so
-# areas run one at a time. Logs go to out/debug/.
+# Each area runs twice, at month 10: as the tool runs it (out/<slug>, with the KML's water/sign pins), and
+# without those pins (out/no-pins/<slug>). When the person who chose the cameras also placed the pins, the
+# pin-free numbers are the honest ones. Large areas (200+ km2) peak at ~9 GB of RAM, so areas run one at a time.
+# Logs go to out/debug/.
 set -e
 [ $# -ge 2 ] || { sed -n '4p' "$0" | cut -c3-; exit 2; }
 cd "$(dirname "$0")/.."
@@ -16,9 +16,9 @@ AREAS=""
 for a in "$@"; do
   s="$(echo "$a" | tr ' A-Z' '-a-z')"
   AREAS="$AREAS --area $s=$s"
-  uv run cougarmap analyze --kml "$KML" --area "$a" --month 10 --include-private --no-open \
+  uv run cougarmap analyze --kml "$KML" --area "$a" --month 10 --no-open \
     > /dev/null 2> "out/debug/$s.log"
-  COUGARMAP_OUT=out/no-pins uv run cougarmap analyze --kml "$KML" --area "$a" --month 10 --include-private \
+  COUGARMAP_OUT=out/no-pins uv run cougarmap analyze --kml "$KML" --area "$a" --month 10 \
     --no-pins --no-open > /dev/null 2> "out/debug/$s-no-pins.log"
 done
 echo "== with the KML pins (out/)"

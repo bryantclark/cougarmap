@@ -192,9 +192,8 @@ class ModelState:
         return self.fine.resample_from(a_mid, self.mid, resampling=resampling)
 
     def any_route(self, row: int, col: int) -> bool:
-        """Is this fine cell reached by the any-route walk (private ground, or everything when private land is
-        allowed) rather than the public-access walk?"""
-        return not (self.opts.public_only and self.layers["public"][row, col])
+        """Is this fine cell reached by the any-route walk (private ground) rather than the public-access walk?"""
+        return not self.layers["public"][row, col]
 
 
 # ---- saving ------------------------------------------------------------------------------------------------

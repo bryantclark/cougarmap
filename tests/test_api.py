@@ -45,7 +45,7 @@ def _kml(tmp_path: Path, cam: tuple[float, float]) -> Path:
 
 def test_analysis_finds_spots_with_reasons(analyzed: dict[str, Any]) -> None:
     s, cands, priv = analyzed["summary"], analyzed["candidates"], analyzed["private_candidates"]
-    assert s["resolution_m"] == 3.0 and s["month"] == 10 and s["options"]["public_only"]
+    assert s["resolution_m"] == 3.0 and s["month"] == 10 and "public_only" not in s["options"]
     assert s["wind"]["prevailing_from"] == "W" and s["lidar_fraction"] == 1.0
     assert 0.5 < s["coverage"]["public_fraction"] < 0.9
     assert cands and priv and s["n_candidates"] == len(cands) and s["private_land"]["n_spots"] == len(priv)
@@ -108,7 +108,7 @@ def test_dry_solid_timber_still_gets_spots(tmp_path: Path) -> None:
         mp.setattr(analyze, "OUT_DIR", tmp_path)  # not over the shared analyzed area (same bbox)
         mp.setattr(vector, "fetch_water", lambda _lb: Water(points=[], flowlines=[], waterbodies=[]))
         mp.setattr(canopy, "fetch_canopy", lambda g: np.full(g.shape, 18.0, "float32"))
-        r = api.analyze_area(bbox=synthetic.bbox(), month=10, public_only=False, log=lambda *_: None)
+        r = api.analyze_area(bbox=synthetic.bbox(), month=10, log=lambda *_: None)
     s = r["summary"]
     assert r["candidates"] and s["best_score"] < WEAK_AREA_SCORE
     assert any("scores low" in n for n in s["notes"])
@@ -118,7 +118,7 @@ def test_a_winter_run_uses_the_winter_module(tmp_path: Path) -> None:
     """January: the season multiplier is on (shallow snow west, deep east, deer winter range over the valley)."""
     with synthetic.offline() as mp:
         mp.setattr(analyze, "OUT_DIR", tmp_path)
-        r = api.analyze_area(bbox=synthetic.bbox(), month=1, public_only=False, log=lambda *_: None)
+        r = api.analyze_area(bbox=synthetic.bbox(), month=1, log=lambda *_: None)
     st = load_state(r["summary"]["outputs"]["state"])
     season = st.layers["season"]
     assert 0.6 <= season.min() < season.max() <= 1 and st.layers["winter_range_mid"].any()
@@ -175,20 +175,20 @@ def test_explain_point(analyzed: dict[str, Any]) -> None:
     assert api.explain_point(area, 10.0, 10.0) == dict(error="point is outside the analyzed area")
 
 
-def test_repick_switches_land_rules_without_rewriting_arrays(area: str) -> None:
+def test_repick_rewrites_only_the_options(area: str) -> None:
     path = OUT_DIR / area / "state.pkl"
     with path.open("rb") as f:
         _, index_at = statefile._read_index(f)
     arrays_before = path.read_bytes()[:index_at]
     kmz_before = (OUT_DIR / area / "cougarmap.kmz").stat().st_mtime_ns
-    r = api.repick(area, n_candidates=3, per_zone=1, public_only=False)
-    assert len(r["candidates"]) <= 3 and r["private_candidates"] == [] and not r["summary"]["options"]["public_only"]
-    assert any(not c["public"] for c in api.repick(area, n_candidates=30, per_zone=30, public_only=False)["candidates"])
+    r = api.repick(area, n_candidates=3, per_zone=1)
+    assert len(r["candidates"]) <= 3 and all(c["public"] for c in r["candidates"])
+    assert r["private_candidates"] and not any(c["public"] for c in r["private_candidates"])
+    api.repick(area, n_candidates=30, per_zone=30)
     assert path.read_bytes()[:index_at] == arrays_before  # only the options were rewritten
     assert (OUT_DIR / area / "cougarmap.kmz").stat().st_mtime_ns >= kmz_before
-    st = load_state(path)
-    assert st.opts.n_candidates == 30 and not st.opts.public_only
-    short = api.repick(area, max_walk_miles=0.05, public_only=True)
+    assert load_state(path).opts.n_candidates == 30
+    short = api.repick(area, max_walk_miles=0.05)
     assert all(c["walk_miles"] <= 0.05 for c in short["candidates"])
 
 

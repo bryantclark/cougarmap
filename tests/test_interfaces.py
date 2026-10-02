@@ -126,7 +126,7 @@ def test_mcp_tools_answer_in_json(analyzed: dict[str, Any], monkeypatch: pytest.
     monkeypatch.setattr(jobs, "status", lambda jid, wait=0, tail=8: dict(job_id=jid, state="running", wait=wait))
     r = _call("find_hotspots", location="Testville", wait_seconds=500)
     assert r == dict(job_id="job-1", state="running", wait=mcp_server.MAX_WAIT)
-    assert started[0] == ("hotspots", dict(location="Testville", public_only=True, max_walk_miles=1.0, blocks=3))
+    assert started[0] == ("hotspots", dict(location="Testville", max_walk_miles=1.0, blocks=3))
     _call("analyze_area", bbox=[1.0, 2.0, 3.0, 4.0])
     _call("scout_region", location="Testville")
     assert [k for k, _ in started] == ["hotspots", "analyze", "scout"]
@@ -196,8 +196,8 @@ def test_cli_commands(analyzed: dict[str, Any], area: str, monkeypatch: pytest.M
     for fn in ("find_hotspots", "scout_region", "analyze_area"):
         monkeypatch.setattr(api, fn, toys.recorder(calls, dict(ok=True)))
     monkeypatch.setattr(jobs, "start", lambda kind, params: "job-9")
-    assert run("hotspots", "Testville", "--include-private") == dict(ok=True)
-    assert calls[-1][:6] == ("Testville", None, None, None, None, False)
+    assert run("hotspots", "Testville", "--max-walk-miles", "0.5") == dict(ok=True)
+    assert calls[-1][:6] == ("Testville", None, None, None, None, 0.5)
     assert run("hotspots", "Testville", "--background")["job_id"] == "job-9"
     assert run("scout", "Testville", "--top", "2") == dict(ok=True) and calls[-1][-2] == 2
     assert run("analyze", "--bbox=1,2,3,4", "--n", "4") == dict(ok=True) and calls[-1][4] == [1.0, 2.0, 3.0, 4.0]

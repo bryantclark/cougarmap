@@ -86,8 +86,10 @@ pin.
 
 ## Rules and picking
 
-- **Public land** (PAD-US public access) by default. Private land is still scored and returned separately as
-  private candidates (P1, P2...) and hidden KMZ layers, so switching to it needs a `repick`, not a rerun.
+- **Public land** (PAD-US public access) for the ranked spots. Private land is scored the same way and its spots
+  are returned separately as private candidates (P1, P2...) and hidden KMZ layers; walks to them may cross
+  private land. A regional search chooses its blocks by public land, so private land far from public ground is
+  only analyzed when you name the area (a small radius or a KML outline).
 - **Within 1 mile of walking** from a road open to vehicles that month. Walking is a least-cost route over slope
   and terrain (about 30 minutes), not a straight line. Road seasons come from the USFS Motor Vehicle Use Map.
 - Lakes, and cells too close to a paved road, can't hold a camera.

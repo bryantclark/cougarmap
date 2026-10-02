@@ -51,7 +51,8 @@ Field log ──< Camera deployment | Snow track | Transect
   for downwind ends of openings. Both are the method's; they are not a contradiction.
 - **Open road** — a road open to vehicles in the month analyzed (USFS MVUM seasons). The access rule is within
   1 mile of *walking* from one.
-- **Public only** — the default land rule. Private land is still analyzed and returned as Private candidates.
+- **Public land** — the land rule for the ranked spots. Private land is still analyzed and returned as Private candidates
+  (a separate list and hidden KMZ layers); there is no option to mix them.
 - **Human picks** — camera spots a person chose by hand from the same factors, as `CamNN` pins in a KML
   (`evaluate.py`, set up in `data/private/eval.toml`). A reference, *not* ground truth. The field-log arm for such a
   camera is `human`.

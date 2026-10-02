@@ -300,9 +300,8 @@ def _doc_description(s: dict[str, Any]) -> str:
         f"(consistency R {w['consistency']:.2f}{_common(w)}; source: {w['source']}). "
         + _ground(w)
         + f"Resolution {s['resolution_m']:g} m, lidar {s['lidar_fraction']:.0%}. "
-        f"Public only: {s['options']['public_only']}"
-        + (" (private-land spots and score are in hidden layers)" if s["options"]["public_only"] else "")
-        + f". Max walk {s['options']['max_walk_miles']} mi."
+        "Spots on public land; private-land spots and score are in hidden layers. "
+        f"Max walk {s['options']['max_walk_miles']} mi."
     )
 
 
@@ -344,8 +343,7 @@ def write_outputs(result: Result, out_dir: Path, log: Log = print, state: bool =
             layers[name] = (Overlay(f"layer_{len(layers)}.png", bnds, visible), ex.submit(_render, ll, ramp, floor))
 
         add("Lion score (usable ground, top 30%)", pct(A["final"], A["usable"]), visible=True, floor=0.02)
-        if st.opts.public_only:
-            add("Lion score on private land (top 30%)", pct(A["final_private"], A["usable_private"]), floor=0.02)
+        add("Lion score on private land (top 30%)", pct(A["final_private"], A["usable_private"]), floor=0.02)
         add("Lion score (all ground, ignoring access/land rules)", pct(A["score"], inside), floor=0.02)
         add("Factor: wind", A["wind"])
         add("Factor: edges", A["edges"])

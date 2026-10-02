@@ -150,7 +150,7 @@ def test_save_and_load_state(tmp_path: Path) -> None:
     assert np.array_equal(back.chm, np.rint(st.chm))  # canopy is kept in whole metres, rounded
     assert back.layers["land_names"] == ["Test National Forest"]
 
-    o = Options(month=10, public_only=False, n_candidates=30)
+    o = Options(month=10, n_candidates=30)
     assert save_state_opts(p, o)
     assert load_state(p).opts == o
     with gzip.open(tmp_path / "old.pkl", "wb") as f:
