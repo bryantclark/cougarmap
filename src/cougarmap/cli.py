@@ -18,8 +18,8 @@ from . import api, jobs
 EXAMPLES = """Examples:
 
 \b
+  cougarmap analyze --near "47.3712, -116.1029" --radius-km 3
   cougarmap hotspots "Missoula, MT"
-  cougarmap hotspots 47.3712, -116.1029 --radius-km 30
   cougarmap wind "Missoula, MT" --month 11
   cougarmap open <the .kmz path it prints>
 

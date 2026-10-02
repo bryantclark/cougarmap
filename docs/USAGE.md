@@ -39,12 +39,12 @@ Things to ask:
 ## Command line
 
 ```bash
-cougarmap hotspots "Missoula, MT" --radius-km 30          # the main command
-cougarmap hotspots 47.3712, -116.1029 --radius-km 15
-cougarmap hotspots "Missoula, MT" --background && cougarmap jobs
+cougarmap analyze --near "47.3712, -116.1029" --radius-km 3   # everything around a spot, in detail
+cougarmap hotspots "Missoula, MT"                             # a region: screens 25 km, analyzes the best blocks
+cougarmap hotspots "Missoula, MT" --radius-km 40 --background && cougarmap jobs
 cougarmap scout "Missoula, MT" --radius-km 40              # a quick regional screen
 cougarmap analyze --bbox=-116.13,47.35,-116.08,47.39        # one area in detail
-cougarmap analyze --near "47.3712, -116.1029" --radius-km 2     # e.g. your property: see its P1, P2... spots
+cougarmap analyze --near "47.3712, -116.1029" --radius-km 1.5   # your property: see its P1, P2... spots
 cougarmap import-kml ~/Downloads/my-areas.kml               # your outlines and water pins
 cougarmap analyze --kml ~/Documents/CougarMap/my-data/my-areas.kml --area "North Ridge"
 cougarmap repick north-ridge --n 20 --per-zone 1
