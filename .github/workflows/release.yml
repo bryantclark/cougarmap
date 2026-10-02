@@ -1,0 +1,96 @@
+name: Release
+
+# Push a tag like v0.1.0 on main (after bumping the version in pyproject.toml and server.json) to publish:
+# PyPI (trusted publishing, no token), a GitHub release with the installer zip, and the MCP Registry (GitHub OIDC).
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+# Actions are pinned to commit SHAs (the tag in the comment); Dependabot keeps them current.
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # to check the tag is on main
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+      - name: The tag, pyproject.toml and server.json agree on the version
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          py="$(uv version --short)"
+          srv="$(jq -r .version server.json)"
+          pkg="$(jq -r '.packages[0].version' server.json)"
+          echo "tag $tag, pyproject $py, server.json $srv / $pkg"
+          [ "$tag" = "$py" ] && [ "$tag" = "$srv" ] && [ "$tag" = "$pkg" ]
+          git fetch --quiet origin main
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main || { echo "the tag must be on main"; exit 1; }
+      - run: uv build
+      - run: ./scripts/make_installer.sh
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dist
+          path: |
+            dist/cougarmap-*
+            dist/CougarMap-installer.zip
+
+  pypi:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: pypi
+      url: https://pypi.org/project/cougarmap/
+    permissions:
+      id-token: write # trusted publishing
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: dist
+          path: dist
+      - run: rm dist/CougarMap-installer.zip
+      - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+
+  github-release:
+    needs: pypi
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: dist
+          path: dist
+      - name: Create the release with the installer and the package files
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" --generate-notes
+
+  mcp-registry:
+    needs: pypi
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      id-token: write # GitHub OIDC login to the registry
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install mcp-publisher
+        run: |
+          curl -fsSL "https://github.com/modelcontextprotocol/registry/releases/download/v1.8.1/mcp-publisher_linux_amd64.tar.gz" \
+            | tar xz mcp-publisher
+      - name: Wait for PyPI to serve this version (the registry checks the package exists)
+        run: |
+          v="${GITHUB_REF_NAME#v}"
+          for _ in $(seq 30); do
+            curl -fsS "https://pypi.org/pypi/cougarmap/$v/json" >/dev/null && exit 0
+            sleep 10
+          done
+          echo "cougarmap $v is not on PyPI yet"; exit 1
+      - run: ./mcp-publisher login github-oidc
+      - run: ./mcp-publisher publish

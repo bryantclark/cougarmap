@@ -1,0 +1,21 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.bryantclark/cougarmap",
+  "title": "CougarMap",
+  "description": "Find trail-camera spots for mountain lions from free public map data, ranked and explained.",
+  "repository": {
+    "url": "https://github.com/bryantclark/cougarmap",
+    "source": "github"
+  },
+  "version": "0.1.0",
+  "packages": [
+    {
+      "registryType": "pypi",
+      "identifier": "cougarmap",
+      "version": "0.1.0",
+      "runtimeHint": "uvx",
+      "packageArguments": [{ "type": "positional", "value": "mcp" }],
+      "transport": { "type": "stdio" }
+    }
+  ]
+}

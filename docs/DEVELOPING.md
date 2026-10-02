@@ -64,7 +64,7 @@ runs the MCP server; `scripts/mcp_e2e.py` drives it end to end over the network.
   server instructions under 2 KB.
 
 Helper scripts: `scripts/debug_panel.py` and `scripts/overview.py` render layers from a saved state;
-`scripts/make_installer.sh` builds the double-click installer.
+`scripts/make_installer.sh` builds the double-click installer zip.
 
 ## Speed
 
@@ -87,6 +87,21 @@ Large areas (200+ km2) peak at about 9 GB of RAM.
 **Speedups must not change results.** `tests/test_kernels.py` checks each kernel against the scipy/numpy code it
 replaced, and a full rerun of the validation areas should give bit-identical layers and candidates. A speedup that
 changes numbers is a model change and goes through the eval.
+
+## Releasing
+
+1. In a pull request, set the new version in `pyproject.toml` and in both places in `server.json` (the
+   `tests/test_release.py` check keeps them together), and merge it.
+2. Tag the merge commit on `main` and push the tag:
+
+   ```bash
+   git tag v0.2.0 && git push public v0.2.0
+   ```
+
+The `Release` workflow (`.github/workflows/release.yml`) checks that the tag matches the versions and is on `main`,
+publishes to PyPI by trusted publishing (the `pypi` environment, no token), creates the GitHub release with the
+installer zip, and publishes `server.json` to the MCP Registry, logging in with GitHub OIDC. Versions follow
+semver: a change to a tool's arguments, a CLI option or the saved-state format is a minor bump before 1.0.
 
 ## Changing the model
 
