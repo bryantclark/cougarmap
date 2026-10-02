@@ -22,6 +22,7 @@ import pickle
 import shutil
 import struct
 import threading
+import time
 import zlib
 from collections import deque
 from collections.abc import Callable, Iterator
@@ -139,7 +140,7 @@ def save(tree: Any, path: str | Path, level: int = LEVEL) -> None:
             ]
             index = _walk(skeleton, lambda v: refs[v.i] if isinstance(v, _Slot) else v)
             _write_index(f, pickle.dumps(index, protocol=pickle.HIGHEST_PROTOCOL))
-        tmp.replace(path)
+        _swap(tmp, path)
     finally:
         tmp.unlink(missing_ok=True)
 
@@ -195,6 +196,23 @@ def load(path: str | Path) -> Any:
             return out
 
 
+SWAP_WAIT_S = 10.0  # how long a swap waits for readers to close the file (Windows only blocks)
+
+
+def _swap(tmp: Path, path: Path, wait_s: float = SWAP_WAIT_S) -> None:
+    """Atomically replace path with tmp. Windows can't replace a file another process has open (an MCP server or
+    job loading the same state), so a refused swap is retried until the readers let go, then raised."""
+    deadline = time.monotonic() + wait_s
+    while True:
+        try:
+            tmp.replace(path)
+            return
+        except PermissionError:
+            if time.monotonic() >= deadline:
+                raise
+            time.sleep(0.05)
+
+
 def update(path: str | Path, fn: Callable[[Any], Any]) -> None:
     """Replace a version-2 file's object tree with fn(tree), rewriting only the index at the end of the file.
     fn sees arrays as opaque references: change small entries, keep the references where they are.
@@ -215,6 +233,6 @@ def update(path: str | Path, fn: Callable[[Any], Any]) -> None:
             _write_index(f, blob)
             f.flush()
             os.fsync(f.fileno())
-        tmp.replace(path)
+        _swap(tmp, path)
     finally:
         tmp.unlink(missing_ok=True)
