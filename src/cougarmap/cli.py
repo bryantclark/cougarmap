@@ -50,6 +50,19 @@ def _map(result: dict[str, Any], open_it: bool) -> None:
     _log(f"\nmap: {Path(kmz).resolve().as_uri()}")
     if open_it and sys.stdout.isatty() and sys.stderr.isatty():
         api.open_file(kmz)
+    _explore(result, open_it)
+
+
+def _explore(result: dict[str, Any], open_it: bool) -> None:
+    """After the JSON: links to the interactive weights pages (--interactive), and open the first in the browser
+    (for a person at a terminal)."""
+    pages = result.get("explore") or [p for p in [result.get("summary", {}).get("outputs", {}).get("explore")] if p]
+    from pathlib import Path
+
+    for p in pages:
+        _log(f"weights page: {Path(p).resolve().as_uri()}")
+    if pages and open_it and sys.stdout.isatty() and sys.stderr.isatty():
+        api.open_file(pages[0])
 
 
 def _note_fixes(location: str | None) -> None:
@@ -73,6 +86,9 @@ def hotspots(
     blocks: int = typer.Option(3, help="how many ~3 km blocks to analyze in detail"),
     fast: bool = typer.Option(False, "--fast", help="skip the slow extras (worn trails from 1 m lidar)"),
     background: bool = typer.Option(False, help="start as a background job and print its id"),
+    interactive: bool = typer.Option(
+        False, "--interactive", help="also write explore.html: move a weight slider per factor, watch the spots move"
+    ),
     open_map: bool = typer.Option(True, "--open/--no-open", help="open the map in Google Earth when done"),
 ) -> None:
     """Find cougar hotspots near a place (scout + detailed analysis + one KMZ). The main command."""
@@ -88,11 +104,14 @@ def hotspots(
             max_walk_miles=max_walk_miles,
             blocks=blocks,
             fast=fast,
+            interactive=interactive or None,
         )
         jid = jobs.start("hotspots", {k: v for k, v in params.items() if v is not None})
         _out(dict(job_id=jid, state="running", next=f"cougarmap job {jid} --wait 45"))
     else:
-        r = api.find_hotspots(location, radius_km, kml, area, month, max_walk_miles, blocks, log=_log, fast=fast)
+        r = api.find_hotspots(
+            location, radius_km, kml, area, month, max_walk_miles, blocks, log=_log, fast=fast, interactive=interactive
+        )
         _out(r)
         _map(r, open_map)
 
@@ -173,6 +192,9 @@ def analyze(
     n: int = typer.Option(15, help="number of camera spots"),
     pins: bool = typer.Option(True, help="use the water/sign pins in your KML files (--no-pins for validation)"),
     fast: bool = typer.Option(False, "--fast", help="skip the slow extras (worn trails from 1 m lidar)"),
+    interactive: bool = typer.Option(
+        False, "--interactive", help="also write explore.html: move a weight slider per factor, watch the spots move"
+    ),
     open_map: bool = typer.Option(True, "--open/--no-open", help="open the map in Google Earth when done"),
 ) -> None:
     """Detailed analysis of one area -> KMZ + ranked camera spots."""
@@ -191,6 +213,7 @@ def analyze(
         log=_log,
         user_pins=pins,
         fast=fast,
+        interactive=interactive,
     )
     _out(r)
     _map(r, open_map)
@@ -203,9 +226,15 @@ def repick(
     per_zone: int = 3,
     spacing_m: float = 150.0,
     max_walk_miles: float | None = None,
+    interactive: bool = typer.Option(
+        False, "--interactive", help="also write explore.html from the saved analysis (no rerun)"
+    ),
+    open_page: bool = typer.Option(True, "--open/--no-open", help="open the weights page in the browser"),
 ) -> None:
     """Re-select spots from a saved analysis (more/fewer, more spread out, other walk limit) without recomputing."""
-    _out(api.repick(area, n, per_zone, spacing_m, max_walk_miles))
+    r = api.repick(area, n, per_zone, spacing_m, max_walk_miles, interactive=interactive)
+    _out(r)
+    _explore(r, open_page)
 
 
 @app.command()

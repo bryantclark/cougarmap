@@ -38,8 +38,28 @@ jobs:
             dist/cougarmap-*
             dist/CougarMap-installer.zip
 
+  app:
+    # The weights app, built into one HTML file and attached to the release: the first --interactive run of this
+    # version downloads it (explore.app_html), so the Python package stays small.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: explore-app/package-lock.json
+      - run: npm ci && npm run build
+        working-directory: explore-app
+      - run: mkdir -p app && cp explore-app/dist/index.html app/cougarmap-explore.html
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: app
+          path: app/cougarmap-explore.html
+
   pypi:
-    needs: build
+    needs: [build, app]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment:
@@ -66,7 +86,11 @@ jobs:
         with:
           name: dist
           path: dist
-      - name: Create the release with the installer and the package files
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: app
+          path: dist
+      - name: Create the release with the installer, the package files and the weights app
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" --generate-notes

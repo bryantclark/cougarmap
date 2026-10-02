@@ -56,6 +56,7 @@ async def find_hotspots(
     wind_from_deg: float | None = None,
     blocks: int = 3,
     fast: bool = False,
+    interactive: bool = False,
     wait_seconds: float = 30,
 ) -> JSON:
     """Find mountain lion hotspots and trail-camera spots: ranked spots with reasons and a Google Earth KMZ.
@@ -66,6 +67,8 @@ async def find_hotspots(
     month 1-12 (default: now). wind_from_deg overrides the modeled prevailing wind (degrees it blows FROM).
     Worn trails from 1 m lidar (where it exists) come back as a hidden KMZ layer and a worn_trail hint per spot
     (where to face the camera; scores do not change). fast=True skips them for a quicker first run.
+    interactive=True also writes explore.html per analyzed area (paths in "explore"): a local page with a weight
+    slider per factor that moves the top spots live; offer it (open_file) when the user wants to explore the factors.
     Runs in the background: if the result says state=running, call job_status(job_id) until done."""
     return await _job(
         "hotspots",
@@ -80,6 +83,7 @@ async def find_hotspots(
             wind_from_deg=wind_from_deg,
             blocks=blocks,
             fast=fast or None,  # job params keep only what was set
+            interactive=interactive or None,
         ),
         wait_seconds,
     )
@@ -105,10 +109,13 @@ async def repick(
     per_zone: int = 3,
     spacing_m: float = 150.0,
     max_walk_miles: float | None = None,
+    interactive: bool = False,
 ) -> JSON:
     """Re-select camera spots from an area already analyzed (more/fewer, more spread out with per_zone=1, a
-    shorter walk limit) and rewrite its KMZ. Takes seconds, no rerun. area = the area's name or folder."""
-    return await _bg(api.repick, area, n_candidates, per_zone, spacing_m, max_walk_miles)
+    shorter walk limit) and rewrite its KMZ. Takes seconds, no rerun. area = the area's name or folder.
+    interactive=True also writes the weights page (summary outputs "explore"; offer open_file on it): a weight
+    slider per factor that moves the top spots live, for a user who wants to see how the factors change the picks."""
+    return await _bg(api.repick, area, n_candidates, per_zone, spacing_m, max_walk_miles, interactive)
 
 
 @server.tool(structured_output=False)
