@@ -197,16 +197,15 @@ def _without_hint(spots: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def test_worn_trails_change_no_score_or_pick(analyzed: dict[str, Any]) -> None:
-    """The synthetic area again with worn trails on: the same spots and scores (conftest.analyzed has them off),
+    """The synthetic area again as a normal run, worn trails on: the same spots and scores as conftest.analyzed (a fast
+    run, without them),
     plus the layer, the hints and a summary of them."""
     with synthetic.offline():
-        r = api.analyze_area(
-            bbox=synthetic.bbox(), month=10, area_name="worn on", worn_trails=True, log=lambda *_: None
-        )
+        r = api.analyze_area(bbox=synthetic.bbox(), month=10, area_name="worn on", log=lambda *_: None)
     assert _without_hint(r["candidates"]) == _without_hint(analyzed["candidates"])
     assert _without_hint(r["private_candidates"]) == _without_hint(analyzed["private_candidates"])
     off = analyzed["summary"]["worn_trails"]
-    assert off["on"] is False and "--worn-trails" in off["how"]
+    assert off["on"] is False and "--fast" in off["how"]
     assert all(c["worn_trail"] is None for c in analyzed["candidates"])
     s = r["summary"]["worn_trails"]
     assert s["on"] is True and 0.6 < s["km"] < 2.5 and 0.6 < s["unmapped_km"] <= s["km"]
@@ -249,7 +248,7 @@ def test_worn_hint_distances_and_wording() -> None:
 
 def test_worn_notes() -> None:
     a = aoi_mod.circle(47.37, -116.10, 1.0)
-    on, off = Options(worn_trails=True), Options()
+    on, off = Options(), Options(worn_trails=False)
     g = lidar.lidar_grid(a.geom, 32611, 10)
     z = np.zeros((2, 2), np.float32)
     assert context._worn_notes(a, off, None) == []

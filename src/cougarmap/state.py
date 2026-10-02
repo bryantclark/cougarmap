@@ -352,9 +352,12 @@ def migrate(tree: dict[str, Any]) -> ModelState:
     fill("worn_unmapped", lambda: np.zeros(fine.shape, bool), True)
 
     layers = cast("Layers", {k: v for k, v in raw.items() if k in SAVED})  # layers dropped since are ignored
+    opts = _rebuild(Options, slim["opts"])
+    if version < 6:  # worn trails are on by default now, but these states never computed them
+        opts.worn_trails = False
     return ModelState(
         aoi=slim["aoi"],
-        opts=_rebuild(Options, slim["opts"]),
+        opts=opts,
         month=int(slim["month"]),
         fine=fine,
         mid=mid,

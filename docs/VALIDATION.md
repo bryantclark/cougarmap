@@ -85,7 +85,7 @@ multiplier) gained 2 points on the picks and +0.007 camera concordance, inside t
 
 ### Worn trails (lidar): a hint, not a factor
 
-The opt-in worn-trail layer (`worn.py`, 1 m 3DEP lidar) recovers 58% of the mapped OpenStreetMap tracks and paths
+The worn-trail layer (`worn.py`, 1 m 3DEP lidar) recovers 58% of the mapped OpenStreetMap tracks and paths
 in the human-pick areas, and about 75% of what it finds is on no map. 32% of the human-picked sites sit within
 15 m of an unmapped worn line, against 11-16% for matched control points: people picking by hand put cameras by
 these lines. Added to the score in any of the forms tried (a travel term, a multiplier near any or only unmapped

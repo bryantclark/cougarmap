@@ -36,10 +36,10 @@ def _no_alternate_floor() -> Iterator[None]:
 
 @pytest.fixture(scope="session")
 def analyzed() -> Iterator[dict[str, Any]]:
-    """The synthetic area analyzed once (public land only, October), as api.analyze_area returns it, plus "dir":
-    the folder its outputs and state.pkl were written to."""
+    """The synthetic area analyzed once (public land only, October, a fast run: no worn trails), as
+    api.analyze_area returns it, plus "dir": the folder its outputs and state.pkl were written to."""
     with synthetic.offline():
-        r = api.analyze_area(bbox=synthetic.bbox(), month=10, log=lambda *_: None)
+        r = api.analyze_area(bbox=synthetic.bbox(), month=10, log=lambda *_: None, fast=True)
     yield dict(r, dir=Path(r["summary"]["outputs"]["state"]).parent)
     api._STATES.clear()
 

@@ -45,7 +45,7 @@ cougarmap hotspots "Missoula, MT"                             # a region: screen
 cougarmap hotspots "Missoula, MT" --radius-km 40 --background && cougarmap jobs
 cougarmap analyze --bbox=-116.13,47.35,-116.08,47.39        # one area in detail
 cougarmap analyze --near "47.3712, -116.1029" --radius-km 1.5   # your property: see its P1, P2... spots
-cougarmap analyze --near "47.3712, -116.1029" --radius-km 1.5 --worn-trails   # + worn trails from 1 m lidar
+cougarmap analyze --near "47.3712, -116.1029" --radius-km 1.5 --fast   # skip the slow extras (worn trails)
 cougarmap import-kml ~/Downloads/my-areas.kml               # your outlines and water pins
 cougarmap analyze --kml ~/Documents/CougarMap/my-data/my-areas.kml --area "My Area"
 cougarmap repick my-area --n 20 --per-zone 1
@@ -92,7 +92,7 @@ pickle, so CougarMap only reads states inside its results folder.
 | Layer | Source |
 |---|---|
 | Elevation | USGS 3DEP 1 m lidar (TNM API + S3 COGs), 1/3 and 1 arc-second fallback |
-| Worn trails (opt-in) | USGS 3DEP 1 m lidar at full resolution over the area (about 110 MB for a 3 km radius, cached) |
+| Worn trails (skipped with `--fast`) | USGS 3DEP 1 m lidar at full resolution over the area (about 110 MB for a 3 km radius, cached) |
 | Canopy height | Meta/WRI global canopy height v2 (1 m, AWS open data) |
 | Water | USGS NHD (springs, streams by permanence, waterbodies) |
 | Roads, trails, fences | OpenStreetMap (Overpass), ODbL |

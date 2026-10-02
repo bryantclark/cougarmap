@@ -71,9 +71,7 @@ def hotspots(
     month: int | None = typer.Option(None, help="1-12 (default this month): wind, snow and open roads change"),
     max_walk_miles: float = typer.Option(1.0, help="farthest walk from a road open that month"),
     blocks: int = typer.Option(3, help="how many ~3 km blocks to analyze in detail"),
-    worn_trails: bool = typer.Option(
-        False, "--worn-trails/--no-worn-trails", help="add worn trails from 1 m lidar (slower; no score changes)"
-    ),
+    fast: bool = typer.Option(False, "--fast", help="skip the slow extras (worn trails from 1 m lidar)"),
     background: bool = typer.Option(False, help="start as a background job and print its id"),
     open_map: bool = typer.Option(True, "--open/--no-open", help="open the map in Google Earth when done"),
 ) -> None:
@@ -89,14 +87,12 @@ def hotspots(
             month=month,
             max_walk_miles=max_walk_miles,
             blocks=blocks,
-            worn_trails=worn_trails,
+            fast=fast,
         )
         jid = jobs.start("hotspots", {k: v for k, v in params.items() if v is not None})
         _out(dict(job_id=jid, state="running", next=f"cougarmap job {jid} --wait 45"))
     else:
-        r = api.find_hotspots(
-            location, radius_km, kml, area, month, max_walk_miles, blocks, log=_log, worn_trails=worn_trails
-        )
+        r = api.find_hotspots(location, radius_km, kml, area, month, max_walk_miles, blocks, log=_log, fast=fast)
         _out(r)
         _map(r, open_map)
 
@@ -176,9 +172,7 @@ def analyze(
     wind_from: float | None = typer.Option(None, help="override prevailing wind, degrees it blows FROM"),
     n: int = typer.Option(15, help="number of camera spots"),
     pins: bool = typer.Option(True, help="use the water/sign pins in your KML files (--no-pins for validation)"),
-    worn_trails: bool = typer.Option(
-        False, "--worn-trails/--no-worn-trails", help="add worn trails from 1 m lidar (slower; no score changes)"
-    ),
+    fast: bool = typer.Option(False, "--fast", help="skip the slow extras (worn trails from 1 m lidar)"),
     open_map: bool = typer.Option(True, "--open/--no-open", help="open the map in Google Earth when done"),
 ) -> None:
     """Detailed analysis of one area -> KMZ + ranked camera spots."""
@@ -196,7 +190,7 @@ def analyze(
         n,
         log=_log,
         user_pins=pins,
-        worn_trails=worn_trails,
+        fast=fast,
     )
     _out(r)
     _map(r, open_map)

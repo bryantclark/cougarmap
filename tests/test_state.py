@@ -367,3 +367,12 @@ def test_real_states_load(path: Path) -> None:
     st = load_state(path)
     assert set(st.layers) == set(SAVED)
     assert st.layers["score"].shape == st.fine.shape and st.layers["drain_mid"].shape == st.mid.shape
+
+
+def test_states_before_worn_trails_say_they_have_none(tmp_path: Path) -> None:
+    """Worn trails are on by default now; a version-5 state never computed them, so its options say off."""
+    save_state(toys.state(), tmp_path / "s.pkl")
+    tree = statefile.load(tmp_path / "s.pkl")
+    assert migrate(tree).opts.worn_trails
+    tree["slim"]["version"] = 5
+    assert not migrate(tree).opts.worn_trails

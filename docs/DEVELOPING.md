@@ -42,7 +42,7 @@ runs the MCP server; `scripts/mcp_e2e.py` drives it end to end over the network.
 - `sources/` holds one module per data source (elevation, canopy, vector layers, buildings, weather, snow, and
   `lidar.py`, the 1 m lidar window for worn trails), all cached under `~/.cache/cougarmap` by `net.py`.
 - `worn.py` is the worn-trail detector (oriented trough filters on the 1 m DEM, by FFT on threads; settings
-  `config.WornTrails`). `factors.compute_worn_trails` runs it when `Options.worn_trails` is on and keeps the lines
+  `config.WornTrails`). `factors.compute_worn_trails` runs it when `Options.worn_trails` is on (always, unless `fast`) and keeps the lines
   and the cells on no map; `analyze.worn_hint` gives each spot its hint. It must never change a score
   (`tests/test_worn.py` compares the spots with it on and off).
 - `state.py` is the one schema of the model's layers (`Layers`, a TypedDict). Each layer's annotation says whether

@@ -35,7 +35,7 @@ def _tools() -> dict[str, dict[str, Any]]:
 def test_mcp_instructions_fit_the_clients_limit() -> None:
     """Some MCP clients cut server instructions at 2 KB (CI checks the built wheel the same way)."""
     assert len(mcp_server.INSTRUCTIONS.encode()) < 2048 and "trail_type" in mcp_server.INSTRUCTIONS
-    assert "worn_trails" in mcp_server.INSTRUCTIONS and "trail_alternate" in mcp_server.INSTRUCTIONS
+    assert "fast=True" in mcp_server.INSTRUCTIONS and "trail_alternate" in mcp_server.INSTRUCTIONS
 
 
 def test_mcp_tool_names() -> None:
@@ -265,11 +265,12 @@ def test_cli_main_errors_and_map_link(monkeypatch: pytest.MonkeyPatch, capsys: p
     assert capsys.readouterr().err == ""
 
 
-def test_worn_trails_flag_on_every_surface() -> None:
-    """The opt-in worn-trail layer is one keyword on the api, the MCP tool and both CLI commands."""
-    assert "worn_trails" in _tools()["find_hotspots"]["properties"]
+def test_fast_flag_on_every_surface() -> None:
+    """Skipping the slow extras (worn trails) is one keyword on the api, the MCP tool and both CLI commands."""
+    assert "fast" in _tools()["find_hotspots"]["properties"]
     for fn in (api.analyze_area, api.find_hotspots):
-        assert inspect.signature(fn).parameters["worn_trails"].default is False
+        assert inspect.signature(fn).parameters["fast"].default is False
+    assert api._opts().worn_trails and not api._opts(fast=True).worn_trails
     runner = CliRunner()
     for cmd in ("analyze", "hotspots"):
-        assert "--worn-trails" in runner.invoke(app, [cmd, "--help"]).output
+        assert "--fast" in runner.invoke(app, [cmd, "--help"]).output

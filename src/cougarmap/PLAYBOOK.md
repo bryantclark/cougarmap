@@ -35,15 +35,14 @@ ground: see the placement line below), so the spot stays the pick: mention the a
 `open_to_vehicles` is true it sits on or beside a road open that month: say so (more traffic, theft risk). In
 the KMZ they are a hidden folder ("Alternate spots on a trail/two-track").
 
-**Worn trails (lidar), opt-in.** With `worn_trails=True` (`--worn-trails`) the run also finds worn trails in 1 m
+**Worn trails (lidar).** Unless the run is fast (`fast=True`, `--fast`), it also finds worn trails in 1 m
 lidar where the USGS has it: game trails, cattle trails and old two-tracks show as narrow troughs and benches,
 most of them on no map. They go in a hidden KMZ folder ("Worn trails (lidar)": ones on no map bright, ones on a
 mapped road or trail grey), and each spot within 30 m of one on no map gets a `worn_trail` hint: where to face
 the camera ("a worn line on no map 20 m N: hang the camera facing it"). It changes no score and never moves the
 spot: give it in one line after the spot's reasons, as a placement tip, and say it is from lidar (check it on
-the ground). It is off by default because a first run downloads about 110 MB more per area and takes about 40 s
-longer; turn it on when the user asks about game trails or exact camera placement, or for a small area such as a
-property. `summary.worn_trails` says whether it ran and how much it found; `summary.notes` says when there is no
+the ground). A first run downloads about 110 MB more per area and takes about 40 s longer (about 7 s once cached);
+use `fast=True` only when the user wants a quick look and isn't placing cameras yet. `summary.worn_trails` says whether it ran and how much it found; `summary.notes` says when there is no
 1 m lidar there. Faint two-tracks across flat open meadows are often missed.
 
 **Two winds.** Reasons name the wind they mean: the dawn/dusk high-pressure wind (`summary.wind.prevailing_from`)
@@ -67,7 +66,7 @@ the user asks or the public spots are weak; they need landowner permission.
 | "use this KML" / gives a file path | `import_kml(path)` first, so their water/sign pins are used |
 | "why is spot #3 good?" | `explain_point(area, lat, lon)` |
 | "more spread out", "more spots", "within 2 miles" (same area) | `repick(area, ...)` (seconds, no re-download) |
-| "where are the game trails?", "exactly where do I hang it?" | `find_hotspots(..., worn_trails=True)` (a rerun of that area) |
+| "where are the game trails?", "exactly where do I hang it?" | the spot's `worn_trail` hint and the "Worn trails (lidar)" layer (rerun without `fast` if it was a fast run) |
 | "what about private land there?" (same area) | read `private_candidates` from the last result (no rerun) |
 | "I put a camera out at LAT,LON" | `log_camera(lat, lon, name, arm, zone, start, ...)` (see Field log below) |
 | "checked camera X: a cougar on Nov 3 at 5:40" | `log_check(deployment="X", events=[...])` |
