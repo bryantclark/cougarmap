@@ -14,6 +14,7 @@ didn't work. The current model is described in [../HOW_IT_WORKS.md](../HOW_IT_WO
 | 06 | [Wind audit and v3.1](06-wind-audit.md) | 2026-10-01 to 10-02 | The prevailing wind against stations, reanalysis and WindNinja. Shipped hillside drainage (median 43.5%) and honest wind labels |
 | 07 | [Speed and reliability](07-speed-and-reliability.md) | 2026-09-29 to 10-01 | 4-5x faster reruns with bit-identical results |
 | 08 | [Agents and usability](08-agents-and-usability.md) | 2026-09-30 to 10-02 | Background jobs, seven agent apps, the private-land toggle, the legend, and a CLI that takes coordinates as typed |
+| 09 | [Open camera and collar data](09-open-camera-and-collar-data.md) | 2026-10-02 | SNAPSHOT USA cameras and 12 collar groups: production predicts detections within arrays (0.62), not yet in the inland Northwest (0.51); placement at the spot is worth ~3x; refits, 27 features, a CNN, a stronger winter and collar blends all failed |
 
 ## How we experiment
 

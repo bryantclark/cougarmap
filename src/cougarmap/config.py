@@ -152,7 +152,14 @@ class Placement:
     """The optional "alternate on the trail" for each spot (analyze.trail_alternate): the best cell beside a quiet
     linear feature nearby. Cameras on dirt roads and game trails detect far more lions passing (Kolowski &
     Forrester 2017; Bassing et al. 2023 in NE Washington), but spots picked by hand on these factors mostly sit off
-    mapped lines, so this is an extra suggestion, never the default pick. It changes no score."""
+    mapped lines, so this is an extra suggestion, never the default pick. It changes no score.
+
+    In SNAPSHOT USA camera arrays (2019-2024, docs/experiments/09-open-camera-and-collar-data.md) trail and
+    dirt-road cameras caught about 3x more lions than other cameras in the same array, but a mapped quiet line
+    within on_m of a camera gave no detection gain (rate ratio 0.83 [0.50, 1.39] given the camera's recorded
+    placement), and only 13% of the on-trail cameras sat that close to a mapped line: the trails that matter are
+    mostly unmapped game trails. So the gain comes from where the camera is strapped at the spot (the playbook's
+    placement line), not from moving the spot onto a mapped line or giving mapped lines a score bonus."""
 
     search_m: float = 150.0  # how far from the spot to look
     on_m: float = 15.0  # a camera this close to the line watches it (strapped to a tree beside it)

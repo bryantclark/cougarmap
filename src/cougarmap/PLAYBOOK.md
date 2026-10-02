@@ -28,8 +28,9 @@ Single houses, barns and homesteads don't count: lions use them. Gravel and fore
 **Alternate on the trail.** Each spot may carry a `trail_alternate`: the best cell within 150 m beside a quiet
 road or trail (a closed forest road, a forest road closed that month, a two-track, a path), away from
 trailheads, scoring 30+ and at least half the spot. Cameras on dirt roads and trails catch more of the lions
-passing, but the method's own spots mostly sit off mapped lines, so the spot stays the pick: mention the
-alternate as an option ("or put it on the two-track 80 m east"), never in place of the spot. When
+passing, but the method's own spots mostly sit off mapped lines, and in SNAPSHOT USA arrays a mapped line within
+15 m of a camera gave no detection gain (the trails that matter are mostly unmapped game trails, found on the
+ground: see the placement line below), so the spot stays the pick: mention the alternate as an option ("or put it on the two-track 80 m east"), never in place of the spot. When
 `open_to_vehicles` is true it sits on or beside a road open that month: say so (more traffic, theft risk). In
 the KMZ they are a hidden folder ("Alternate spots on a trail/two-track").
 
@@ -89,6 +90,11 @@ Month: use the current month unless the user names a season or month. The wind c
   the west" -> `wind_from_deg=270` (degrees it blows FROM).
 - Give the **KMZ path** and offer to open it. In Google Earth it shows ranked pins (click one for its reasons),
   walking routes, dawn/dusk air-flow arrows, saddles, and toggleable layers for each factor.
+- Give every spot one **placement line**: on the ground, set the camera beside the game trail, old two-track or
+  closed road that crosses the spot (look within ~50 m), about knee-to-waist high, a few metres off the line and
+  facing along it. In SNAPSHOT USA camera arrays, cameras on trails and dirt roads caught about 3x more lions
+  than other cameras in the same array. Maps don't show most game trails, so this is a field call: the spot says
+  where, the trail through it says exactly where.
 - When a spot has a `trail_alternate`, add it in one line after the spot's reasons, as an option.
 - Brief caveats, once: the wind is modeled rather than measured (check it in the field), prey isn't modeled, and
   small water sources are often missing from maps. City/county parks and some state land restrict trail
@@ -107,7 +113,11 @@ as much as hits: always log a check that caught nothing and a route survey with 
 - **Cameras.** `log_camera` when one goes out: `arm` is why it's there: `model` (one of this tool's picks),
   `human` (a spot a person picked by hand), `control` (a nearby spot chosen without the map: the yardstick), `on-feature` /
   `off-feature`, or `unpaired` (not part of a test). Cameras compared with each other share a `zone` (put out
-  the same day, 150-500 m apart, set up alike). Also ask for `trail_type`, `height_m`, `facing_deg`, `lure`.
+  the same day, 150-500 m apart, set up alike). Always ask for `trail_type` (what the camera watches: game-trail, hiking-trail,
+  closed-road, open-dirt, paved, or none): on-trail cameras catch about 3x more lions, so `validate` compares
+  only like with like, and a camera with no `trail_type` can't be compared with the on-trail base rate (the
+  result carries a `warning` until it is set: `log_camera(deployment=id, trail_type=...)`). Also ask for
+  `height_m`, `facing_deg`, `lure`.
   The result's `deployment.id` is what later calls use. `log_check(deployment, date, events, downtime_nights,
   removed)` at each visit: one event per visit (photos of one animal within 30 min are one), with species
   cougar / deer / elk / other; downtime = nights it wasn't recording; event times with a zone are converted to
@@ -121,12 +131,14 @@ as much as hits: always log a check that caught nothing and a route survey with 
   the crossings; other waypoints come back as `ignored_waypoints`: read them to the user and ask whether any was
   a crossing. `crossings=[[lat, lon], ...]` adds more. A repeat survey of a known route needs only `route` and
   `date`; zero crossings is a real result.
-- **The report.** `validate(area)`: cougar detections per 100 camera-nights by arm vs random on-trail cameras in
-  NE Washington (about 0.9 per 100 in summer, 0.4 in winter), model vs control within zones (rate ratio and a
-  paired permutation p-value), each snow track's percentile vs copies of it rotated and shifted 100-1,500 m
-  (0.5 = chance; `by_start` splits road-found tracks, which the test only partly corrects, from the rest), the
+- **The report.** `validate(area)`: cougar detections per 100 camera-nights by arm and placement; only on-trail
+  cameras are compared with random on-trail cameras in NE Washington (about 0.9 per 100 in summer, 0.4 in
+  winter), and off-trail or unrecorded ones are reported as not comparable, not as misses. Model vs control
+  within zones (rate ratio and a paired permutation p-value) carries a `placement_warning` when the two cameras
+  of a zone weren't placed alike: say so, since placement alone can make a 3x difference. Then each snow
+  track's percentile vs copies of it rotated and shifted 100-1,500 m (0.5 = chance; `by_start` splits road-found tracks, which the test only partly corrects, from the rest), the
   crossing routes' AUC (0.5 = chance), sample-size advice, and where any human camera picks (CamNN pins in their KML) rank. Below 30
-  camera-nights an arm's vs_base is withheld (`too_few_nights`): don't quote a rate ratio for it. Read the `summary` lines to the user in plain words, and be honest about sample size: a few
+  on-trail camera-nights an arm's vs_base is withheld (`too_few_nights`): don't quote a rate ratio for it. Read the `summary` lines to the user in plain words, and be honest about sample size: a few
   tracks or one season of cameras is not a verdict (about 15-20 paired zones over 6 months to see a 3x gain).
 
 ## Privacy

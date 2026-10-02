@@ -89,6 +89,16 @@ def test_v2_ids_win_over_migrated_ones(tmp_path: Path) -> None:
 def test_deployment_updates_and_validation() -> None:
     d = fl.new_deployment([], 48.0, -117.0, name="A", arm="Control", trail_type="game trail", start="2026-10-01")
     assert d["arm"] == "control" and d["trail_type"] == "game-trail" and d["lure"] is False
+    assert fl.placement_of(d) == "on-feature"
+    for trail, arm, place in (
+        ("none", "model", "off-feature"),
+        ("paved", "model", "off-feature"),
+        (None, "on-feature", "on-feature"),
+        (None, "off-feature", "off-feature"),
+        (None, "model", "unrecorded"),
+        ("closed-road", "off-feature", "on-feature"),
+    ):
+        assert fl.placement_of(fl.new_deployment([], 48.0, -117.0, arm=arm, trail_type=trail)) == place
     upd = fl.new_deployment([d], None, None, end="2026-12-01", deployment="A")
     merged = fl.deployments([d, upd])["A"]
     assert merged["end"] == "2026-12-01" and merged["lat"] == 48.0 and merged["arm"] == "control"

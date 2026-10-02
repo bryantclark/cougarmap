@@ -153,7 +153,8 @@ def _zones(n: int, rate_ratio: float, seed: int, nights: float = 180, base: floa
         site = rng.gamma(2.0, 0.5)  # zones differ (CV ~0.7); both cameras share the zone's level
         for arm, rr in (("model", rate_ratio), ("control", 1.0)):
             lam = base / 100 * nights * site * rr * rng.gamma(4.0, 0.25)
-            out.append(tr.CamStat(f"{arm}{z}", arm, f"z{z}", nights, int(rng.poisson(lam)), 3, 1, base / 100 * nights))
+            n = int(rng.poisson(lam))
+            out.append(tr.CamStat(f"{arm}{z}", arm, f"z{z}", nights, n, 3, 1, base / 100 * nights, "on-feature"))
     return out
 
 
@@ -194,10 +195,13 @@ def test_paired_test_edges() -> None:
 
 def test_arm_rates_hold_back_the_comparison_below_min_nights() -> None:
     # one night with two cougars: 200 per 100 nights, but no "230x the base rate, p = 0" in the raw output
-    few = tr.arm_rates([tr.CamStat("c", "unpaired", None, 1.0, 2, base_expected=0.0087)])["unpaired"]
+    few = tr.arm_rates([tr.CamStat("c", "unpaired", None, 1.0, 2, base_expected=0.0087, placement="on-feature")])[
+        "unpaired"
+    ]
     assert few["cougar_per_100"] == 200 and few["too_few_nights"]
     assert few["vs_base"] is None and few["p_above_base"] is None
-    enough = tr.arm_rates([tr.CamStat("c", "unpaired", None, 30.0, 2, base_expected=0.26)])["unpaired"]
+    on = tr.CamStat("c", "unpaired", None, 30.0, 2, base_expected=0.26, placement="on-feature")
+    enough = tr.arm_rates([on])["unpaired"]
     assert not enough["too_few_nights"] and enough["vs_base"] == pytest.approx(7.69) and enough["p_above_base"] < 0.05
 
 
@@ -215,6 +219,47 @@ def test_the_trail_alternate_camera_pairs_with_the_picks_own_camera() -> None:
     pairs = {(p["treatment"], p["control"]): p for p in out["paired"]}
     assert set(pairs) == {("model", "control"), ("on-feature", "model"), ("on-feature", "human")}
     assert pairs["model", "control"]["zones"] == 1 and pairs["on-feature", "model"]["rate_ratio"] == 2.0
+
+
+def test_an_off_trail_camera_is_not_judged_against_the_on_trail_base_rate() -> None:
+    """1 cougar per 100 nights off a trail is not "below base": it isn't compared with on-trail cameras at all."""
+    off = tr.CamStat("m", "model", None, 200, 2, base_expected=1.74, placement="off-feature")
+    unk = tr.CamStat("u", "model", None, 100, 0, base_expected=0.87)  # trail_type not logged
+    m = tr.arm_rates([off, unk])["model"]
+    assert m["vs_base"] is None and m["p_above_base"] is None and m["compared_nights"] == 0
+    assert m["not_compared"] == {"off-feature": 1, "unrecorded": 1} and m["cougar_per_100"] == pytest.approx(0.667)
+    assert m["by_placement"]["off-feature"]["cougar_per_100"] == 1.0
+    lines = tr._camera_lines(tr.camera_test([off, unk], np.random.default_rng(0), CFG))
+    assert any("off trails" in x and "not comparable" in x for x in lines)
+    assert any("no trail_type logged" in x for x in lines) and not any("x a random" in x for x in lines)
+    # on-trail cameras of the same arm are still compared, on their own nights and base
+    on = tr.CamStat("t", "model", None, 100, 2, base_expected=0.87, placement="on-feature")
+    both = tr.arm_rates([off, on])["model"]
+    assert both["compared_nights"] == 100 and both["vs_base"] == pytest.approx(2.3) and both["camera_nights"] == 300
+
+
+def test_a_zone_whose_cameras_were_placed_differently_is_flagged() -> None:
+    rng = np.random.default_rng(0)
+    pair = [
+        tr.CamStat("m", "model", "z1", 100, 3, placement="on-feature"),
+        tr.CamStat("c", "control", "z1", 100, 1, placement="off-feature"),
+        tr.CamStat("m2", "model", "z2", 100, 1, placement="on-feature"),
+        tr.CamStat("c2", "control", "z2", 100, 1, placement="on-feature"),
+        tr.CamStat("m3", "model", "z3", 100, 1),
+        tr.CamStat("c3", "control", "z3", 100, 1, placement="on-feature"),
+    ]
+    p = tr.paired_test(pair, "model", "control", rng)
+    assert p is not None and p["zones"] == 3
+    assert p["zones_placed_differently"] == 1 and p["zones_placement_unrecorded"] == 1
+    assert "2 of 3 zone(s)" in p["placement_warning"]
+    alike = tr.paired_test(pair[2:4], "model", "control", rng)
+    assert alike is not None and alike["zones_placed_differently"] == 0 and "placement_warning" not in alike
+    # on-feature vs model compares placement on purpose: no warning there
+    trail = [tr.CamStat("t", "on-feature", "z1", 100, 3, placement="on-feature"), pair[0]]
+    t = tr.paired_test(trail, "on-feature", "model", rng)
+    assert t is not None and "placement_warning" not in t and "zones_placed_differently" not in t
+    lines = tr._camera_lines(tr.camera_test(pair, rng, CFG))
+    assert any("don't compare like with like" in x for x in lines)
 
 
 def test_camera_power_and_zones_needed() -> None:

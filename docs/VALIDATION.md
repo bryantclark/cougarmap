@@ -80,13 +80,20 @@ The human-pick numbers measure whether the tool agrees with people picking by ha
 is where lions actually walk. `validate(area)` (`truth.area_truth`) reports every field test the log allows, each against its
 own null:
 
-- **Cameras.** Cougar detections (30-minute independence) per 100 camera-nights, net of downtime, by arm. They
-  are compared with random on-trail cameras of the Washington Predator-Prey Project in NE Washington and the
-  Okanogan: 0.87 in summer (Jul-Sep, 159 / 18,377), 0.37 in winter (Dec-Feb, 72 / 19,262), and the midpoint in
-  between (Bassing et al. 2023, Ecol. Appl. 33:e2745), with a one-sided Poisson p-value. Arms with fewer than
-  30 camera-nights aren't compared (the raw `by_arm` output holds back vs_base and its p-value then too, with
+- **Cameras.** Cougar detections (30-minute independence) per 100 camera-nights, net of downtime, by arm and
+  by placement: on a trail or dirt road (`trail_type` game-trail, hiking-trail, closed-road or open-dirt), off
+  one (none, paved), or not recorded. Only the on-feature cameras are compared with random on-trail cameras of
+  the Washington Predator-Prey Project in NE Washington and the Okanogan: 0.87 in summer (Jul-Sep, 159 /
+  18,377), 0.37 in winter (Dec-Feb, 72 / 19,262), and the midpoint in between (Bassing et al. 2023, Ecol. Appl.
+  33:e2745), with a one-sided Poisson p-value. In SNAPSHOT USA arrays trail and dirt-road cameras caught about
+  3x more lions than other cameras of the same array ([experiments/09](experiments/09-open-camera-and-collar-data.md)),
+  so an off-trail camera against that base rate would look like a miss it isn't: off-feature and unrecorded
+  cameras are reported as not comparable (`not_compared`). Arms with fewer than 30 on-feature camera-nights
+  aren't compared (the raw `by_arm` output holds back vs_base and its p-value then too, with
   `too_few_nights`). Where a model (or human) camera and a control share a zone, the report gives the pooled
-  rate ratio and a paired sign-flip permutation test on the per-zone rate differences (exact up to 16 zones). An
+  rate ratio and a paired sign-flip permutation test on the per-zone rate differences (exact up to 16 zones),
+  and a `placement_warning` counting the zones whose two cameras weren't placed alike (or whose placement isn't
+  logged). An
   on-feature camera (a pick's "alternate on the trail") is compared the same way with the pick's own camera in
   its zone (arm model or human), so that zone stays in the model-vs-control test, or with an off-feature camera.
   Power, from a simulation with gamma site heterogeneity (CV 0.75) and 180 nights per camera: about 15 zones for

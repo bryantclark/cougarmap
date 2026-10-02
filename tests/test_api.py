@@ -244,15 +244,25 @@ def test_validate_and_field_log(analyzed: dict[str, Any], tmp_path: Path) -> Non
     test the area against it."""
     best = analyzed["candidates"][0]
     r = api.log_camera(best["lat"], best["lon"], name="Cam01", start="2026-09-30")
-    assert r["deployment"]["arm"] == "unpaired" and OBSERVATIONS_FILE.exists()
+    assert r["deployment"]["arm"] == "unpaired" and OBSERVATIONS_FILE.exists() and "no trail_type" in r["warning"]
     ev = [dict(datetime="2026-10-01T06:10", species="cougar"), dict(datetime="2026-10-01T05:00", species="cougar")]
     assert api.log_check("Cam01", "2026-10-01", events=ev)["detections"]["cougar"] == 2
     assert api.read_observations()[0]["type"] == "deployment"
     far = [synthetic.lonlat(-450, -450)[::-1], synthetic.lonlat(450, -450)[::-1]]
     for z, (lat, lon) in enumerate(far):
-        m = api.log_camera(best["lat"], best["lon"], name=f"M{z}", arm="model", zone=f"z{z}", start="2026-07-01")
-        c = api.log_camera(lat, lon, name=f"C{z}", arm="control", zone=f"z{z}", start="2026-07-01", lure=False)
-        assert m["deployment"]["id"] == f"M{z}" and not m["updated"]
+        m = api.log_camera(
+            best["lat"],
+            best["lon"],
+            name=f"M{z}",
+            arm="model",
+            zone=f"z{z}",
+            start="2026-07-01",
+            trail_type="game trail",
+        )
+        c = api.log_camera(
+            lat, lon, name=f"C{z}", arm="control", zone=f"z{z}", start="2026-07-01", lure=False, trail_type="game-trail"
+        )
+        assert m["deployment"]["id"] == f"M{z}" and not m["updated"] and "warning" not in m
         ev = [dict(datetime=f"2026-08-0{d}T05:00", species="cougar") for d in (1, 3, 5)]
         k = api.log_check(f"M{z}", "2026-09-28", events=[*ev, dict(datetime="2026-08-02T05:00", species="deer")])
         assert k["events_logged"] == 4 and k["camera_nights"] == 89 and k["detections"]["cougar"] == 3
@@ -284,13 +294,21 @@ def test_validate_and_field_log(analyzed: dict[str, Any], tmp_path: Path) -> Non
     v = api.validate(analyzed["dir"].name, kml=str(_kml(tmp_path, (best["lat"], best["lon"]))))
     cams = v["cameras"]
     pair, trail = cams["paired"]
-    assert pair["zones"] == 2 and pair["zones_better"] == 2 and pair["rate_ratio"] > 5
+    assert (
+        pair["zones"] == 2 and pair["zones_better"] == 2 and pair["rate_ratio"] > 5 and "placement_warning" not in pair
+    )
     assert (trail["treatment"], trail["control"], trail["zones"]) == ("on-feature", "model", 1)
     assert cams["by_arm"]["model"]["camera_nights"] == 178 and cams["by_arm"]["control"]["camera_nights"] == 160
     assert cams["by_arm"]["model"]["vs_base"] > 1 and cams["sample_size"]["paired_zones"] == 2
     assert {c["id"] for c in cams["cameras"]} == {"Cam01", "M0", "C0", "M1", "C1", "T0"}
-    assert cams["by_arm"]["unpaired"]["vs_base"] is None and cams["by_arm"]["unpaired"]["too_few_nights"]
-    assert all(0 < c["model_rank"] <= 1 for c in cams["cameras"])
+    assert cams["by_arm"]["unpaired"]["not_compared"] == {"unrecorded": 1}  # Cam01, with no trail_type
+    assert all(0 < c["model_rank"] <= 1 for c in cams["cameras"]) and {
+        c["id"]: c["placement"] for c in cams["cameras"] if c["id"] in ("M0", "T0", "Cam01")
+    } == {
+        "M0": "on-feature",
+        "T0": "on-feature",  # the arm says it
+        "Cam01": "unrecorded",
+    }
     (track,) = v["snow_tracks"]["tracks"]
     assert 0 <= track["percentile"] <= 1 and v["snow_tracks"]["sign_test"]["n"] == 1
     split = v["snow_tracks"]["by_start"]
@@ -301,7 +319,7 @@ def test_validate_and_field_log(analyzed: dict[str, Any], tmp_path: Path) -> Non
     assert tx["surveys"] == 3 and tx["crossings"] == 2 and tx["routes"] == ["Route 1"] and 0 <= tx["auc"] <= 1
     assert v["human_picks"]["picks"] == 1 and v["human_picks"]["by_pick"]["Cam01"] <= 0.5
     assert any("model vs control" in line for line in v["summary"])
-    assert any("too few nights" in line for line in v["summary"])  # Cam01's single logged night
+    assert any("no trail_type logged (1)" in line for line in v["summary"])  # Cam01: placement unknown
     assert api.validate(analyzed["dir"].name)["human_picks"] is None  # no camera pins in the private folder
     OBSERVATIONS_FILE.unlink()
     empty = api.validate(analyzed["dir"].name)

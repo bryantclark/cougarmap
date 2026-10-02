@@ -271,7 +271,8 @@ def log_camera(
     """Record a camera put out (or, with deployment=<id>, update one: e.g. its end date; end="" reopens one that
     is still out). arm: model | human |
     control | on-feature | off-feature | unpaired; cameras sharing a zone are compared with each other.
-    trail_type: paved | open-dirt | closed-road | hiking-trail | game-trail | none."""
+    trail_type: paved | open-dirt | closed-road | hiking-trail | game-trail | none; the result carries a warning
+    while it is missing (placement decides which cameras validate can compare)."""
     recs = fieldlog.load()
     d = fieldlog.new_deployment(
         recs,
@@ -292,7 +293,15 @@ def log_camera(
     )
     total = fieldlog.append([d])
     merged = fieldlog.deployments([*recs, d])[d["id"]]
-    return dict(saved=True, updated=deployment is not None, deployment=merged, total=total)
+    out: JSON = dict(saved=True, updated=deployment is not None, deployment=merged, total=total)
+    if not merged["trail_type"]:
+        out["warning"] = (
+            "no trail_type: ask what the camera watches (game-trail, hiking-trail, closed-road, open-dirt, paved or "
+            f'none) and set it with log_camera(deployment="{merged["id"]}", trail_type=...). On-trail cameras catch '
+            "about 3x more lions, so validate compares a camera with the on-trail base rate, and with the other "
+            "camera in its zone, only when its placement is known."
+        )
+    return out
 
 
 def log_check(
