@@ -21,35 +21,37 @@ them at one spot, the better (activity goes up roughly exponentially with each e
 Hard rules: within **1 mile of walking** (along the easiest route) from a road that's **open that month**;
 **public land only** by default. Spots very close to a road are penalized (people, theft).
 
-## Tools (MCP server `cougarmap`; CLI `uv run cougarmap ...` works the same)
+## Tools (MCP server `cougarmap`)
 
 | Tool | Use |
 |---|---|
-| `scout_region(location, radius_km=40)` | "near Missoula" - coarse screen, returns ranked ~3 km blocks (bbox) |
-| `analyze_area(bbox=... / location+radius_km / kml+area_name)` | detailed run -> ranked camera spots + KMZ |
-| `repick(area, n_candidates, per_zone, max_walk_miles, public_only)` | re-select spots from a saved run in seconds |
+| `find_hotspots(location / kml+area_name / bbox, radius_km, month, max_walk_miles, wind_from_deg)` | ranked camera spots + KMZ (a background job) |
+| `job_status(job_id)` | poll a running job until `state` is `done`; no id = recent jobs |
+| `repick(area, n_candidates, per_zone, max_walk_miles)` | re-select spots from a saved run in seconds |
 | `explain_point(area, lat, lon)` | why a spot scores the way it does |
 | `wind_summary(location, month)` | prevailing high-pressure wind |
+| `import_kml(path)` | use their Google Earth file (its water/sign pins count) and list its areas |
+| `open_file(path)` | open the KMZ in Google Earth |
 | `log_camera(lat, lon, name, arm, zone, ...)` | a camera put out (arm model / human / control / ...; zone pairs them) |
 | `log_check(deployment, date, events, downtime_nights, removed)` | a camera visit and what it caught (nothing counts) |
 | `log_track(file, snow_age_h, confidence)` | a lion track followed in snow (GPX/KML/KMZ) |
 | `log_transect(route, file)` | a fixed-route survey after snow: waypoints = crossings (none counts) |
 | `field_log()` | what's logged: camera ids, effort, detections, tracks, surveys |
 | `validate(area)` | test the area against the field log, plus how human camera picks rank |
-| `log_result(lat, lon, lion_seen, ...)` | quick one-off camera result (not part of a test) |
-| `list_areas(kml)` | areas and pins in a Google Earth file |
+| `playbook()` | the full guidance |
 
 ## How to handle requests
 
-- **"Find cougar areas near X"**: `scout_region(X)` -> pick the top 3-4 blocks -> `analyze_area(bbox=block.bbox)`
-  for each -> report. Default radius 40 km; month = the current month unless the user names a season.
+- **"Find cougar areas near X"**: `find_hotspots(location="X")` (default radius 25 km: it scouts the region and
+  analyzes the best blocks), then `job_status` until done. Month = the current month unless the user names one.
 - **"Scan my property at ..."/"include private land"**: a small radius (about 1.5 km) or their KML outline, then
   report the result's `private_candidates`. For an area already analyzed, don't rerun: its `private_candidates`
   are already there.
-- **An area in their Google Earth file** (imported with `import_kml`): `list_areas` then `analyze_area(kml=..., area_name=...)`.
-  Big areas (100+ km2) take a few minutes the first time (downloads); tell the user before starting.
+- **An area in their Google Earth file**: `import_kml(path)` lists its areas, then `find_hotspots(kml=...,
+  area_name=...)`. Big areas (100+ km2) take a few minutes the first time (downloads); tell the user before
+  starting.
 - **"Assume the wind is from the west"**: `wind_from_deg=270`. The model's default wind is the high-pressure
-  dawn/dusk 850 hPa wind; mention when it disagrees with what the user knows (the all-days wind is also returned).
+  dawn/dusk 850 hPa wind; mention when it disagrees with what the user knows.
 - **"Within 2 miles"**: `max_walk_miles=2`. For an area already analyzed, `repick(area, max_walk_miles=2)` is
   instant (but it can only shrink walking reach beyond the original run's 1-mile road search padding + ~5%).
 - **"More spread out" / "more spots"**: `repick(area, per_zone=1, n_candidates=20)`.
