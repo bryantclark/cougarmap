@@ -22,7 +22,19 @@ from shapely.strtree import STRtree
 
 from . import terrain as T
 from .arrays import Floats, Ints, Mask
-from .config import MILE_M, PLACEMENT, WATER, WATER_PINCH, WINTER, WORN, EdgeBand, WaterPinch, Winter
+from .config import (
+    APPROACH,
+    MILE_M,
+    PLACEMENT,
+    WATER,
+    WATER_PINCH,
+    WINTER,
+    WORN,
+    Approach,
+    EdgeBand,
+    WaterPinch,
+    Winter,
+)
 from .context import Context, Log
 from .corridor import funnel_score
 from .grid import Grid
@@ -30,13 +42,15 @@ from .sources import vector as vec
 from .sources.vector import Feature, Props
 from .sources.weather import Wind
 from .sources.weather import label as wind_label
-from .state import PAVED_DIST_CAP_M, SaddlePoint
+from .state import PAVED_DIST_CAP_M, SaddlePoint, stored_chm
 
 __all__ = [
+    "APPROACH_TO",
     "CLOSED_TRACK_M",
     "PAVED_DIST_CAP_M",
     "TRAIL_KINDS",
     "compute_access",
+    "compute_approach",
     "compute_edges",
     "compute_houses",
     "compute_land",
@@ -51,6 +65,7 @@ __all__ = [
     "compute_wind",
     "compute_worn_trails",
     "daytime_wind_deg",
+    "destination_approach",
     "drain_strength",
     "water_pinch",
     "water_squeeze",
@@ -82,6 +97,12 @@ def _lines(feats: list[Feature], pred: Callable[[Props], bool] = _any_props) -> 
 def _polys(feats: list[Feature], pred: Callable[[Props], bool] = _any_props) -> list[BaseGeometry]:
     """Projected polygon geometries (Feature.xy) of the features matching pred."""
     return [f.xy for f in feats if pred(f.props) and isinstance(f.geom, (Polygon, MultiPolygon))]
+
+
+def _ramp(a: Floats, lo: float, hi: float) -> Floats:
+    """0 below lo, 1 above hi, linear between."""
+    out: Floats = np.clip((a - lo) / (hi - lo), 0, 1)
+    return out
 
 
 _disc_kernel = T.disc_kernel
@@ -655,6 +676,7 @@ class WaterSource(NamedTuple):
     weight: float  # how much this kind of water counts
     label: str
     limited: bool  # counts toward the "distinct limited sources within a mile" uniqueness
+    name: str  # what it is, in a reason ("the pond")
 
 
 def water_sources(ctx: Context) -> list[WaterSource]:
@@ -679,12 +701,12 @@ def water_sources(ctx: Context) -> list[WaterSource]:
     seasonal = _lines(ctx.water["flowlines"], lambda p: p.get("fcode") in (46003, 46007))
     perennial = _lines(ctx.water["flowlines"], lambda p: p.get("fcode") == 46006)
     return [
-        WaterSource(ptmask([cast("Point", f.geom) for f in pts]), 1.0, "spring/seep (NHD)", True),
-        WaterSource(pins("water"), 1.0, "known water (your pin)", True),
-        WaterSource(pins("seasonal_water"), 0.8, "seasonal water (your pin)", True),
-        WaterSource(g.mask(small), 0.85, f"small pond/marsh (under {WATER.pond_max_ha:g} ha)", True),
-        WaterSource(g.mask(seasonal), 0.45, "seasonal stream", True),
-        WaterSource(g.mask(perennial), 0.3, "perennial stream", False),
+        WaterSource(ptmask([cast("Point", f.geom) for f in pts]), 1.0, "spring/seep (NHD)", True, "spring"),
+        WaterSource(pins("water"), 1.0, "known water (your pin)", True, "water"),
+        WaterSource(pins("seasonal_water"), 0.8, "seasonal water (your pin)", True, "water"),
+        WaterSource(g.mask(small), 0.85, f"small pond/marsh (under {WATER.pond_max_ha:g} ha)", True, "pond"),
+        WaterSource(g.mask(seasonal), 0.45, "seasonal stream", True, "seasonal creek"),
+        WaterSource(g.mask(perennial), 0.3, "perennial stream", False, "creek"),
     ]
 
 
@@ -752,6 +774,107 @@ def compute_water(ctx: Context, log: Log = print) -> None:
     A["water_scarcity"] = scarcity.astype("float32")
     A["water_labels"] = [s.label for s in sources]
     A["lake"] = lakes
+    to = np.zeros(ctx.fine.shape, np.int8)  # destinations for the approaches: limited water, the first source wins
+    for s in reversed(sources):
+        if s.limited:
+            to[s.mask] = APPROACH_TO.index(s.name) + 1
+    A["approach_water"] = to
+
+
+# ======================================================================================================
+# Destination approaches: covered routes from bedding timber to water and meadows (part of the travel line)
+# ======================================================================================================
+
+# What an approach leads to (state.Layers.travel_approach_to codes 1.., 0 = none): limited water by kind, openings.
+APPROACH_TO = ("spring", "water", "pond", "seasonal creek", "meadow")
+
+
+class Approaches(NamedTuple):
+    value: Floats  # 0-1: a converging, covered approach near its destination, downwind of it
+    root: Ints  # flat fine-grid index of the destination each cell's route ends at (-1 = none within reach)
+
+
+def destination_approach(
+    chm: Floats,
+    slope: Floats,
+    cliff: Mask,
+    lake: Mask,
+    line: Floats,
+    trails: Mask,
+    flowx: Floats,
+    flown: Floats,
+    dest: Mask,
+    res: float,
+    cfg: Approach = APPROACH,
+) -> Approaches:
+    """Covered approaches to the destination cells (config.Approach): least-cost routes from bedding cover to the
+    nearest destination over a cost that favours cover, gentle ground and travel lines (line: the terrain travel
+    line; trails: mapped two-tracks and paths), scored where the routes converge, run under cover, near the
+    destination (taper) and downwind of it at dawn/dusk (flowx/flown: unit vector the air moves toward)."""
+    shape = dest.shape
+    if not dest.any():
+        return Approaches(np.zeros(shape, "float32"), np.full(shape, -1, np.int64))
+    r = res
+    canopy = T.median_filter(chm.astype("float32"), size=max(3, round(cfg.cover_median_m / r) | 1))
+    cover = canopy >= cfg.cover_m
+    near_cover = T.disc_frac(cover, cfg.cover_near_m, r)
+    t = np.maximum(np.clip(line, 0, 1), trails.astype("float32"))
+    step_cost = (
+        (1 + cfg.open_cost * (1 - near_cover))
+        * (1 + cfg.slope_cost * _ramp(slope, *cfg.slope_deg))
+        * (1 - cfg.line_discount * t)
+    )
+    cost = np.where(cliff, step_cost * cfg.cliff_cost, step_cost).astype(np.float64)
+    cost[lake & ~dest] = cfg.lake_cost
+    d_cover = T.edt(cover, r) if cover.any() else np.full(shape, 1e6)
+    covered = d_cover <= cfg.covered_m
+    by_cover = np.clip(1 - (d_cover - cfg.near_cover_m) / (cfg.far_cover_m - cfg.near_cover_m), 0, 1)
+    d_dest = T.edt(dest, r)
+    bed = T.disc_frac(cover, cfg.bed_m, r) >= cfg.bed_frac
+    origins = bed & (d_dest >= cfg.start_m[0]) & (d_dest <= cfg.start_m[1]) & ~lake
+    tree = T.cost_tree(cost, dest, origins * (r * r), covered, r, cfg.max_cost_m, cfg.last_m)
+    conv = np.clip(np.log10(np.maximum(tree.flow, 1e-9) / (cfg.front_m * r)), 0, 1)
+    conv[~np.isfinite(tree.dist)] = 0
+    conv = ndimage.maximum_filter(conv, size=3)
+    under = np.sqrt(np.clip(tree.covered_share, 0, 1) * by_cover)
+    ok = tree.root >= 0
+    W = shape[1]
+    rr, cc = np.where(ok, tree.root // W, 0), np.where(ok, tree.root % W, 0)
+    fx, fn = flowx[rr, cc].astype("float32"), flown[rr, cc].astype("float32")
+    ve = (np.arange(W)[None, :] - cc).astype("float32")  # destination -> cell, east and north
+    vn = (rr - np.arange(shape[0])[:, None]).astype("float32")
+    nv = np.hypot(ve, vn)
+    q = np.where(nv > 0, np.clip(0.5 + 0.5 * (ve * fx + vn * fn) / np.maximum(nv, 1e-6), 0, 1), 0.5)
+    downwind = 0.5 + 0.5 * q
+    taper = np.clip(1 - (d_dest - cfg.taper_m[0]) / (cfg.taper_m[1] - cfg.taper_m[0]), 0, 1)
+    value = conv * under * downwind * taper * ok
+    value[lake | dest] = 0
+    return Approaches(value.astype("float32"), tree.root)
+
+
+def compute_approach(ctx: Context, log: Log = print) -> None:
+    """The destination approaches (destination_approach) to limited water and openings, folded into the travel
+    line: travel = max(travel line, approach). Needs compute_travel, compute_water, compute_edges, compute_wind,
+    compute_pinch (cliffs) and compute_trails (mapped two-tracks and paths lower the route cost)."""
+    A = ctx.layers
+    log("destination approaches: covered routes from timber to water and meadows...")
+    to = np.where(A["meadow"] & (A["approach_water"] == 0), APPROACH_TO.index("meadow") + 1, A["approach_water"])
+    trails = np.isin(A["trail_kind"], (TRAIL_KINDS.index("two-track") + 1, TRAIL_KINDS.index("trail") + 1))
+    ap = destination_approach(
+        stored_chm(ctx.chm),
+        A["slope"],
+        A["cliff"],
+        A["lake"],
+        A["travel"],
+        trails,
+        A["flowx"],
+        A["flown"],
+        to > 0,
+        ctx.fine.res,
+    )
+    A["travel_approach"] = ap.value
+    A["travel_approach_to"] = np.where((ap.value > 0) & (ap.root >= 0), to.ravel()[ap.root], 0).astype(np.int8)
+    A["travel"] = np.maximum(A["travel"], ap.value)
 
 
 # ======================================================================================================

@@ -13,7 +13,7 @@ from __future__ import annotations
 import math
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Literal, TypedDict, TypeVar, cast
+from typing import Any, Literal, NamedTuple, TypedDict, TypeVar, cast
 
 import numpy as np
 import numpy.typing as npt
@@ -879,6 +879,155 @@ def _dijkstra(cost: F64, src: Mask, res: float, max_len: float) -> tuple[F64, F6
                 if n < cap:
                     n = _hpush(hk, hv, n, nt, u)
     return t.reshape(H, W), ln.reshape(H, W), pred
+
+
+@jit()
+def _before(ka: float, va: int, kb: float, vb: int) -> bool:
+    """Settling order (cost, cell): equal costs settle the lower cell index first, so routes are reproducible."""
+    return bool(ka < kb or (ka == kb and va < vb))
+
+
+@jit()
+def _grow(hk: F64, hv: I64) -> tuple[F64, I64]:
+    n = hk.size
+    hk2, hv2 = np.empty(2 * n, np.float64), np.empty(2 * n, np.int64)
+    hk2[:n], hv2[:n] = hk, hv
+    return hk2, hv2
+
+
+@jit(nogil=True)
+def _least_cost_tree(  # noqa: C901, PLR0912, PLR0915 - one numba loop: heap helper calls cost ~15%
+    cost: F64, starts: I64, res: float, cutoff: float
+) -> tuple[F64, I64, I64]:
+    """Multi-source Dijkstra (8 neighbours, step x mean cost of its two cells) from the start cells (sorted), up to
+    cutoff. Returns the cost distance (inf past the cutoff), each cell's predecessor (-1 at a start or unreached)
+    and the reached cells in the order they settled (a parent always before its children). Cells settle in
+    (cost, index) order; the start cells, all at cost 0, settle first in index order without entering the heap."""
+    H, W = cost.shape
+    N = H * W
+    cf = cost.ravel()
+    D = np.full(N, np.inf)
+    pred = np.full(N, -1, np.int64)
+    done = np.zeros(N, np.bool_)
+    order = np.empty(N, np.int64)
+    n_done = 0
+    hk, hv = np.empty(1 << 16, np.float64), np.empty(1 << 16, np.int64)
+    n = 0
+    for s in starts:
+        D[s] = 0.0
+    s_next = 0
+    while n > 0 or s_next < starts.size:
+        if s_next < starts.size:
+            d, i = 0.0, starts[s_next]
+            s_next += 1
+        else:  # pop the top of the 4-ary heap (shallower than a binary one), sifting the last entry down
+            d, i = hk[0], hv[0]
+            n -= 1
+            last_k, last_v = hk[n], hv[n]
+            h = 0
+            while True:
+                first = 4 * h + 1
+                if first >= n:
+                    break
+                best = first
+                for c in range(first + 1, min(first + 4, n)):
+                    if _before(hk[c], hv[c], hk[best], hv[best]):
+                        best = c
+                if not _before(hk[best], hv[best], last_k, last_v):
+                    break
+                hk[h], hv[h] = hk[best], hv[best]
+                h = best
+            hk[h], hv[h] = last_k, last_v
+        if done[i]:
+            continue
+        done[i] = True
+        order[n_done] = i
+        n_done += 1
+        r = i // W
+        c = i - r * W
+        for k in range(8):
+            rr, cc = r + DR[k], c + DC[k]
+            if rr < 0 or cc < 0 or rr >= H or cc >= W:
+                continue
+            j = rr * W + cc
+            if done[j]:
+                continue
+            nd = d + DL[k] * res * 0.5 * (cf[i] + cf[j])
+            if nd < D[j] and nd <= cutoff:
+                D[j] = nd
+                pred[j] = i
+                if n == hk.size:
+                    hk, hv = _grow(hk, hv)
+                h = n  # push: sift the hole up from the end
+                while h > 0:
+                    p = (h - 1) >> 2
+                    if not _before(nd, j, hk[p], hv[p]):
+                        break
+                    hk[h], hv[h] = hk[p], hv[p]
+                    h = p
+                hk[h], hv[h] = nd, j
+                n += 1
+    return D.reshape(H, W), pred, order[:n_done]
+
+
+@jit(nogil=True)
+def _tree_flow(
+    pred: I64, order: I64, weight: F64, covered: npt.NDArray[np.bool_], W: int, res: float, last_m: float
+) -> tuple[I64, F64, F64]:
+    """Over a least-cost tree (pred, order): each cell's root (start cell), the weight flowing through it (its own
+    plus everything upstream: origins send their weight down the tree to the root), and the covered share of the
+    route's last_m metres into the root (1 where the route is shorter than one step)."""
+    N = pred.size
+    root = np.full(N, -1, np.int64)
+    length = np.zeros(N)  # route length from the root
+    uncovered = np.zeros(N)  # uncovered metres of the route's first last_m from the root
+    for t in range(order.size):
+        i = order[t]
+        p = pred[i]
+        if p < 0:
+            root[i] = i
+            continue
+        root[i] = root[p]
+        diag = (i // W != p // W) and (i % W != p % W)
+        step = res * (math.sqrt(2.0) if diag else 1.0)
+        length[i] = length[p] + step
+        uncovered[i] = uncovered[p]
+        if not covered[i] and length[i] <= last_m:
+            uncovered[i] += step
+    acc = weight.copy()
+    for t in range(order.size - 1, -1, -1):
+        i = order[t]
+        p = pred[i]
+        if p >= 0:
+            acc[p] += acc[i]
+    share = np.ones(N)
+    for i in range(N):
+        if length[i] > 0:
+            share[i] = 1.0 - uncovered[i] / min(length[i], last_m)
+    return root, acc, share
+
+
+class CostTree(NamedTuple):
+    """A least-cost tree grown from destination cells (terrain.cost_tree), on the grid it was grown on."""
+
+    dist: F64  # cost distance to the nearest destination (inf past the cutoff)
+    root: Ints  # flat index of the destination each cell's route ends at (-1 = unreached)
+    flow: F64  # origin weight passing through each cell on its way to a destination
+    covered_share: F64  # covered share of each route's last metres into its destination
+
+
+def cost_tree(
+    cost: Floats, starts: Mask, origin_weight: Floats, covered: Mask, res: float, cutoff: float, last_m: float
+) -> CostTree:
+    """Least-cost routes from every cell to the nearest start cell (by cost distance, up to cutoff), the flow of
+    origin_weight down them, and the covered share of each route's last_m metres."""
+    H, W = cost.shape
+    src = np.flatnonzero(starts.ravel()).astype(np.int64)
+    D, pred, order = _least_cost_tree(cost.astype(np.float64), src, float(res), float(cutoff))
+    root, acc, share = _tree_flow(
+        pred, order, origin_weight.ravel().astype(np.float64), covered.ravel().astype(np.bool_), W, float(res), last_m
+    )
+    return CostTree(D, root.reshape(H, W), acc.reshape(H, W), share.reshape(H, W))
 
 
 def tobler_sec_per_m(slope: Floats) -> Floats:

@@ -59,7 +59,7 @@ def test_evaluate_on_the_synthetic_area(
     out = ev.evaluate(areas={"syn": area.name}, states_dir=area.parent, kml=kml, n_random=50)
     o, a = out["overall"], out["areas"]["syn"]
     assert a["n_cams"] == 2 and out["cams"]["Cam01"]["rank_frac"] < out["cams"]["Cam02"]["rank_frac"]
-    assert out["cams"]["Cam01"]["rank_frac"] <= 0.5 and 0 <= o["vs_random"] <= 1
+    assert out["cams"]["Cam01"]["rank_frac"] < a["random_median_rank"] and 0 <= o["vs_random"] <= 1
     assert out["fixed_k"]["cams_within"]["150"] >= 0.5 and out["fixed_k"]["check_area_within"] == {}
     assert "OVERALL  median rank" in capsys.readouterr().out
     ev.report(out, by_cam=True)

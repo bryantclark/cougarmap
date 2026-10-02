@@ -19,7 +19,7 @@ public map data. The more factors at one spot, the better, assuming there's prey
 How spots are rated: over the camera's ~20 m view, by the habitat within ~500 m (hunting edge and water
 around), with extra credit on natural travel lines: drainage bottoms (most on gentle grades) and ridge spines
 where lions cross them (saddles, junctions of ridges, and in winter ridges above big south/southeast-facing
-slopes); other ridge spines get half. In winter (November-April) the habitat also counts low, sun-facing
+slopes), and the covered approaches from bedding timber to water and meadows; other ridge spines get half. In winter (November-April) the habitat also counts low, sun-facing
 ground with shallow snow, where deer winter, and (December-March, Washington) mapped deer/elk winter range.
 Paved roads cut the score out to 800 m (traffic, people, theft), and so do populated areas (more than 15
 houses within 500 m; about 60 gets the full cut) and trailheads, campgrounds and parking areas (out to 400 m).

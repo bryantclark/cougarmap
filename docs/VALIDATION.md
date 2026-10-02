@@ -59,7 +59,8 @@ locations stay private; the aggregate results are:
 | v3 | 46% (89%) | 0.81 | 16% (4%) | 60% (21%) |
 | v3.1 | 43.5% (89%) | 0.81 | 20% (4%) | 52% (21%) |
 | v3.2: every house costs a little | 36.1% (87%) | 0.82 | 28% (5%) | 52% (20%) |
-| **v3.3: ponds and lakes as pinch barriers (current)** | **36.3% (87%)** | **0.82** | 28% (5%) | 56% (20%) |
+| v3.3: ponds and lakes as pinch barriers | 36.3% (87%) | 0.82 | 28% (5%) | 56% (20%) |
+| **v3.4: approaches to water and meadows (current)** | **35.7% (87%)** | **0.82** | 28% (5%) | 56% (20%) |
 
 All three areas were used in tuning, so none of them is a blind test. Per site, v3 against v2 is 14 better, 9
 worse and 2 tied (p = 0.40), and v3.1 against v3 is 11 better and 9 worse: 25 sites are a tripwire, not a test
@@ -77,6 +78,12 @@ on every check (median 36.1% -> 36.3%, vsR 0.821 -> 0.821, fixed-K within 150 m 
 three worse by half a point or more; GPS pooled rank unchanged at 0.514, 2 animals better and 1 worse; cameras and
 collars unchanged). It ships as the owner's realism call, not as a measured gain. Stream confluences, tried in the
 same round, cost a little on the picks and cameras and were not kept.
+v3.4 (destination approaches in the travel line, [experiments/14](experiments/14-water-approaches.md)) against
+v3.3: median 36.3% -> 35.7%, vsR 0.821 -> 0.822, 13 sites better by half a point or more and none worse; areas
+27.9 / 36.9 / 41.7% -> 27.9 / 35.8 / 41.0% (against v3.2: 36.1% -> 35.7%). Cameras and collars unchanged (+0.000;
+-0.000 [-0.001, +0.002]); the inland-Northwest lock-box 0.512 -> 0.513; GPS pooled rank
+unchanged at 0.514 (14 animals better, 17 worse). The same corridors added to
+the water factor instead hurt two areas, and lidar trails to water were neutral; neither was kept.
 [experiments/](experiments/) has every change, ablation, placebo and negative result behind these numbers.
 
 ### Controls to rerun when smoothing or terrain terms change

@@ -19,6 +19,7 @@ didn't work. The current model is described in [../HOW_IT_WORKS.md](../HOW_IT_WO
 | 11 | [Worn trails from 1 m lidar](11-worn-trails.md) | 2026-10-02 | Finds 58% of mapped tracks, mostly lines on no map; human picks sit near them, but as a score factor it doesn't help: a hint and a layer, off by default |
 | 12 | [Reshaped factors, prey and tuning](12-reshape-prey-tuning.md) | 2026-10-02 | Factor reshapes (ruggedness, rock cover, incised draws, local-relative), a prey layer and 30-parameter cross-validated tuning: nothing passed held-out checks; lions don't track deer traffic within arrays |
 | 13 | [Ponds as barriers, and confluences](13-water-barriers.md) | 2026-10-02 | Ideas from blind LLM picking agents: stream confluences cost a little; ponds and lakes as pinch barriers are neutral everywhere (median 36.1% -> 36.3%, GPS unchanged) and ship as the owner's realism call |
+| 14 | [Approaches to water and meadows](14-water-approaches.md) | 2026-10-02 | Covered least-cost routes from bedding timber to water and meadows, in the travel line: human picks 36.3% -> 35.7%, 13 sites better and none worse, nothing else moved; the same corridors as water hurt two areas |
 
 ## How we experiment
 

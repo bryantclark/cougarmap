@@ -62,6 +62,9 @@ Field log ──< Camera deployment | Snow track | Transect
 - **Lion truth** — actual detections: camera hits, snow tracks, transect crossings. The only real ground truth.
 - **Pins** — water/sign points the user marks in Google Earth. Pin-free eval (`--no-pins`) is the honest one
   when the person who chose the human-picked cameras also placed the pins.
+- **Destination approach** — the covered route animals take from bedding timber to a destination (limited water
+  to drink, a meadow or other opening to feed), where many least-cost routes converge near it; part of the
+  travel line. *Not* a mapped trail, and *not* the Trail alternate.
 - **Trail alternate** — an optional nearby spot on a quiet road or trail; offered as an option, never instead of
   the Spot.
 - **Placement** — where a camera is strapped at its spot: **on-feature** (beside a game trail, two-track, closed

@@ -44,7 +44,8 @@ if TYPE_CHECKING:
 #    quiet roads/trails (placement suggestions).
 # 6: worn trails from 1 m lidar (empty unless Options.worn_trails).
 # 7: ponds and lakes as pinch barriers (pinch_water, pinch_water_kind).
-STATE_VERSION: Final = 7
+# 8: destination approaches in the travel line (travel_approach, travel_approach_to).
+STATE_VERSION: Final = 8
 
 PAVED_DIST_CAP_M: Final = 2000.0  # paved-road distances are stored up to this (well past the penalty's reach)
 
@@ -79,6 +80,10 @@ class Layers(TypedDict, total=False):
     travel_pos_mid: Annotated[Floats, Store.HALF]  # -1 bottom .. +1 spine
     travel_gate_mid: Annotated[Floats, Store.HALF]  # 0-1: a spine is a crossing here (saddle, spine junction)
     travel_thermal_mid: Annotated[Floats, Store.HALF]  # 0-1: ... or a ridge above sun-facing slopes (winter)
+    # destination approaches: covered routes from bedding timber to water and meadows (travel = max(line, this))
+    travel_approach: Annotated[Floats, Store.HALF]
+    travel_approach_to: Annotated[Ints, Store.EXACT]  # what it leads to (factors.APPROACH_TO code, 0 = none)
+    approach_water: Ints  # limited-water destinations by kind (factors.APPROACH_TO code, 0 = none)
     # land status
     land_id: Annotated[Ints, Store.EXACT]  # index into land_names / land_access (0 = private / unknown)
     land_id_mid: Ints
@@ -214,7 +219,7 @@ def _stored(name: str, a: np.ndarray) -> np.ndarray:
     return a.astype(np.float16 if SAVED[name] is Store.HALF else np.float32)
 
 
-def _stored_chm(chm: Floats) -> np.ndarray:
+def stored_chm(chm: Floats) -> np.ndarray:
     """Canopy height as state.pkl keeps it: whole metres, 0-255."""
     return np.rint(np.clip(chm, 0, 255)).astype(np.uint8)
 
@@ -227,7 +232,7 @@ def to_saved_precision(st: ModelState) -> None:
         a = A.get(name)
         if store is Store.HALF and isinstance(a, np.ndarray) and a.dtype.kind == "f":
             A[name] = a.astype(np.float16).astype(np.float32)
-    st.chm = _stored_chm(st.chm).astype(np.float32)
+    st.chm = stored_chm(st.chm).astype(np.float32)
 
 
 def save_state(st: ModelState, path: Path) -> None:
@@ -248,7 +253,7 @@ def save_state(st: ModelState, path: Path) -> None:
         unmodeled=sorted(st.unmodeled),
         meta=meta,
         z=st.z.astype(np.float32),
-        chm=_stored_chm(st.chm),
+        chm=stored_chm(st.chm),
         aoi_mask=st.aoi_mask,
     )
     # most layers are sparse or smooth: compressing takes ~2 GB down to a few hundred MB
@@ -357,6 +362,9 @@ def migrate(tree: dict[str, Any]) -> ModelState:
     # not modeled before version 7: no water pinch (the saved pinch is the one computed without it)
     fill("pinch_water", lambda: np.zeros(fine.shape, np.float32), True)
     fill("pinch_water_kind", lambda: np.zeros(fine.shape, np.int8), True)
+    # not modeled before version 8: no destination approaches (the saved travel is the line without them)
+    fill("travel_approach", lambda: np.zeros(fine.shape, np.float32), True)
+    fill("travel_approach_to", lambda: np.zeros(fine.shape, np.int8), True)
 
     layers = cast("Layers", {k: v for k, v in raw.items() if k in SAVED})  # layers dropped since are ignored
     opts = _rebuild(Options, slim["opts"])

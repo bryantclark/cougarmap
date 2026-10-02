@@ -531,3 +531,47 @@ def test_open_access_wins_where_land_overlaps() -> None:
     assert A["public"][50, 50] and not A["public"][50, 80] and A["usfs_mid"][50, 10]
     assert A["land_names"][A["land_id"][50, 50]] == "Test NF (Forest Service)"
     assert A["land_names"][0] == "private / unknown" and A["land_access"][0] is None
+
+
+def _approach_area(res: float = 3.0) -> dict[str, np.ndarray]:
+    """A 900 m square of timber with a pond (west), a meadow (east) and a wide open flat (south) that is neither."""
+    n = 300
+    rr, cc = np.mgrid[0:n, 0:n] * res
+    chm = np.full((n, n), 20.0, "float32")
+    pond = np.hypot(rr - 300, cc - 250) <= 15
+    meadow = (np.abs(rr - 300) <= 40) & (np.abs(cc - 650) <= 40)
+    chm[meadow] = 0
+    chm[rr >= 660] = 0  # the open flat, 240 m deep
+    zeros = np.zeros((n, n), "float32")
+    return dict(chm=chm, pond=pond, meadow=meadow, open=chm == 0, rr=rr, cc=cc, zeros=zeros)
+
+
+def test_destination_approach_lights_the_covered_way_in() -> None:
+    a = _approach_area()
+    z, no = a["zeros"], np.zeros(a["chm"].shape, bool)
+    dest = a["pond"] | a["meadow"]
+    east = np.ones_like(z)  # the dawn/dusk air moves east
+    ap = F.destination_approach(a["chm"], z, no, a["pond"], z, no, east, z, dest, 3.0)
+    v = ap.value
+    assert v.dtype == np.float32 and v.min() >= 0 and v.max() <= 1
+    assert not v[dest].any()  # not on the water or in the meadow itself
+    d_pond = np.hypot(a["rr"] - 300, a["cc"] - 250)
+    d_mead = np.maximum(np.abs(a["rr"] - 300), np.abs(a["cc"] - 650))
+    near_pond, near_mead = (d_pond > 15) & (d_pond <= 90), (d_mead > 40) & (d_mead <= 110)
+    assert v[near_pond].max() > 0.3 and v[near_mead].max() > 0.3  # routes from the timber converge on both
+    assert not v[(d_pond > 15 + 150) & (d_mead > 40 + 150)].any()  # nothing far from a destination
+    far_open = a["open"] & ~a["meadow"] & (a["rr"] >= 660 + 30)
+    assert not v[far_open].any()  # open ground away from cover is no covered approach
+    # downwind of the pond (east of it) counts more than upwind
+    ring = (d_pond > 20) & (d_pond <= 75)
+    assert v[ring & (a["cc"] > 270)].mean() > v[ring & (a["cc"] < 230)].mean()
+    W = v.shape[1]
+    root = ap.root[150, 85]  # a cell in the timber beside the pond: its route ends at the pond
+    assert a["pond"][root // W, root % W]
+
+
+def test_destination_approach_without_destinations_is_zero() -> None:
+    a = _approach_area()
+    z, no = a["zeros"], np.zeros(a["chm"].shape, bool)
+    ap = F.destination_approach(a["chm"], z, no, no, z, no, z, z, no, 3.0)
+    assert not ap.value.any() and (ap.root == -1).all()

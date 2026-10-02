@@ -90,9 +90,9 @@ CougarMap stacks four things lions use. The more of them at one spot, the better
 4. **Limited water.** Springs, seeps, seasonal water and small ponds. Water counts most when it is the only water
    for a mile.
 
-It also favors natural travel lines such as drainage bottoms and ridge crossings. In winter it adds low,
-sun-facing ground with shallow snow, where deer spend the winter. It avoids paved roads, towns, trailheads and
-campgrounds. [docs/HOW_IT_WORKS.md](https://github.com/bryantclark/cougarmap/blob/main/docs/HOW_IT_WORKS.md) has the details.
+It also favors natural travel lines such as drainage bottoms, ridge crossings and the covered approaches from
+timber to water and meadows. In winter it adds low, sun-facing ground with shallow snow, where deer spend the
+winter. It avoids paved roads, towns, trailheads and campgrounds. [docs/HOW_IT_WORKS.md](https://github.com/bryantclark/cougarmap/blob/main/docs/HOW_IT_WORKS.md) has the details.
 
 **What it can't see:** the wind is modeled from weather history, not measured on the ground. Prey isn't modeled.
 Small springs and seeps are often missing from maps. If you know of water the maps miss, pin it in Google Earth

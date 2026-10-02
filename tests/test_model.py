@@ -406,6 +406,26 @@ def test_describe_new_reasons() -> None:
     assert {"travel", "habitat"} <= set(near["factors"])
 
 
+def test_approach_reason_where_the_approach_makes_the_travel_line() -> None:
+    st = toy()
+    A = st.layers
+    A["travel"][150, 150] = 0.7
+    A["travel_pos_mid"][150, 150] = -0.9
+    A["travel_approach"][150, 150] = 0.7  # the approach is what makes the travel line here
+    A["travel_approach_to"][150, 150] = F.APPROACH_TO.index("pond") + 1
+    apply_masks(st)
+    r = describe(st, 150, 150)["reasons"]
+    assert any(s.startswith("on the covered approach from timber to the pond") for s in r)
+    assert not any(s.startswith("drainage bottom") for s in r)  # one travel reason, the one that counts
+    A["travel_approach_to"][150, 150] = F.APPROACH_TO.index("meadow") + 1
+    assert any(
+        "to the meadow - the trail deer and elk take out to feed" in s for s in describe(st, 150, 150)["reasons"]
+    )
+    A["travel"][150, 150] = 0.9  # the terrain line is stronger: it is the reason
+    r = describe(st, 150, 150)["reasons"]
+    assert any(s.startswith("drainage bottom") for s in r) and not any("covered approach" in s for s in r)
+
+
 def _reasons(st: ModelState, **cells: Any) -> list[str]:
     for k, v in cells.items():
         cast("dict[str, Any]", st.layers)[k][100, 100] = v
